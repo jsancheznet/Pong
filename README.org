@@ -1,0 +1,17 @@
+* Simple Pong Clone
+
+** Goals
+*** TODO Finish something
+*** TODO The game should just be one executable, no extra files, clean single executable.
+*** TODO Compile on MSVC
+*** TODO Compile on Clang in Linux
+*** TODO Compile on GCC Linux
+
+** Tools
+*** SDL Multimedia Library
+*** SDL_TTF
+
+** How to build
+*** TODO Windows
+*** TODO Linux
+*** TODO MacOS

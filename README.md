@@ -1,2 +1,0 @@
-# Pong
-Simple pong clone
