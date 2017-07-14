@@ -3,16 +3,21 @@
 #pragma warning(disable: 4201)
 #pragma warning(disable: 4100)
 
-#pragma comment(lib, "Shcore.lib")
-
 #include <windows.h>
-#include <ShellScalingAPI.h>
 #include <SDL.h>
-#include "../assets/background.xpm"
 #include <SDL_image.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
+
+#define Assert(Expr) assert(Expr)
+
+#ifdef _WIN32
+#define Free(Expr) VirtualFree((Expr), 0, MEM_RELEASE)
+#define Malloc(Size) VirtualAlloc(NULL, (SIZE_T)(Size), MEM_COMMIT, PAGE_READWRITE)
+#define ZeroMem(Ptr, Size) ZeroMemory(Ptr, Size)
+#define ZeroArray(Ptr, Size) ZeroMemory(Ptr, Size)
+#endif
 
 typedef char     u8;
 typedef uint16_t u16;
@@ -26,6 +31,13 @@ typedef float    r32;
 typedef double   r64;
 typedef i32      b32;
 
+//
+// Image Assets
+//
+#include "../assets/background.xpm" // static char *BackgroundXpm[]
+#include "../assets/ball.xpm"       // static char *BallXpm[]
+#include "../assets/paddle.xpm"     // static char *PaddleXpm[]
+
 enum state
 {
     State_Game,
@@ -34,23 +46,50 @@ enum state
     State_End
 };
 
-// struct ball
-// {
-//     v2 Position;
-//     r32 Radius;
-//     r32 r, g, b, a;
-// };
+struct keyboard
+{
+    const Uint8 *State;
+    Uint8 *PrevState;
+    i32 Numkeys;
+};
+
+struct mouse
+{
+    i32 x;
+    i32 y;
+    u32 State;
+    u32 PrevState;
+};
 
 struct gamestate
 {
     state CurrentState;
-};
 
+    // Time Related
+    r64 DeltaTime;
+    u64 FrameStart;
+    u64 FrameEnd;
+    u64 CounterFreq;
+};
 
 static i32 IsRunning = true;
 static i32 WindowWidth = 640;
 static i32 WindowHeight = 480;
 static gamestate Gamestate = {};
+static keyboard Keyboard = {};
+static mouse Mouse = {};
+
+SDL_Texture *MySDL_TextureFromXPM(SDL_Renderer *Renderer, char **Xpm)
+{
+    SDL_Texture *Result = NULL;
+    SDL_Surface *Surface = IMG_ReadXPMFromArray(Xpm);
+
+    Result = SDL_CreateTextureFromSurface(Renderer, Surface);
+    SDL_FreeSurface(Surface);
+    Assert(Result);
+
+    return Result;
+}
 
 i32 main(i32 argc, char **argv)
 {
@@ -62,48 +101,128 @@ i32 main(i32 argc, char **argv)
                                                 SDL_RENDERER_ACCELERATED |
                                                 SDL_RENDERER_PRESENTVSYNC);
 
-    SDL_Surface *Image = IMG_ReadXPMFromArray(background_xpm);
-    SDL_Texture *Texture = SDL_CreateTextureFromSurface(Renderer, Image);
+
+    // Load Textures
+    SDL_Texture *Background = MySDL_TextureFromXPM(Renderer, BackgroundXpm);
+    SDL_Texture *Paddle = MySDL_TextureFromXPM(Renderer, PaddleXpm);
+    SDL_Texture *Ball = MySDL_TextureFromXPM(Renderer, BallXpm);
+
+    // Keyboard Setup
+    Keyboard.State = SDL_GetKeyboardState(&Keyboard.Numkeys);
+    Keyboard.PrevState = (Uint8*)malloc(sizeof(u8) * Keyboard.Numkeys);
+    ZeroMem(Keyboard.PrevState, sizeof(u8) * Keyboard.Numkeys);
+
+    // Timer Setup
+    Gamestate.CounterFreq = SDL_GetPerformanceFrequency();
 
     while(IsRunning)
     {
+        Gamestate.FrameStart = SDL_GetPerformanceCounter();
+
+        // Copy Previous Keyboard State
+        memcpy((void*)Keyboard.PrevState, (void*)Keyboard.State, sizeof(u8) * Keyboard.Numkeys);
+
         SDL_Event Event;
         while(SDL_PollEvent(&Event))
         {
-            switch(Event.type)
+            if(Event.type == SDL_QUIT)
             {
-                case SDL_KEYDOWN:
+                IsRunning = false;
+            }
+        }
+
+        Keyboard.State = SDL_GetKeyboardState(NULL);
+        Mouse.PrevState = Mouse.State;
+        Mouse.State = SDL_GetMouseState(&Mouse.x, &Mouse.y);
+
+        //
+        // Update
+        //
+        switch(Gamestate.CurrentState)
+        {
+            case State_Game:
+            {
+                if(Keyboard.State[SDL_SCANCODE_ESCAPE])
                 {
-                    break;
+                    Gamestate.CurrentState = State_Pause;
                 }
-                case SDL_KEYUP:
-                {
-                    if(Event.key.keysym.sym == SDLK_ESCAPE)
-                    {
-                        IsRunning = false;
-                    }
-                    break;
-                }
-                case SDL_QUIT:
+                break;
+            }
+            case State_Menu:
+            {
+                printf("We are in Menu State, it is empty!\n");
+                break;
+            }
+            case State_Pause:
+            {
+                // Escape exits game
+                if(Keyboard.State[SDL_SCANCODE_ESCAPE] && !Keyboard.PrevState[SDL_SCANCODE_ESCAPE])
                 {
                     IsRunning = false;
-                    break;
                 }
+
+                // Enter switches back to game
+                if(Keyboard.State[SDL_SCANCODE_RETURN])
+                {
+                    Gamestate.CurrentState = State_Game;
+                }
+                break;
+            }
+            case State_End:
+            {
+                printf("We are in End State, it is empty!\n");
+                break;
             }
         }
 
         SDL_Rect Rect = {0, 0, 100, 100};
 
+        //
         // Render
-        SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
-        SDL_RenderClear(Renderer);
+        //
+        switch(Gamestate.CurrentState)
+        {
+            case State_Game:
+            {
 
-        SDL_RenderCopy(Renderer,
-                       Texture, 0, 0);
+                SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
+                SDL_RenderClear(Renderer);
 
-        SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
-        SDL_RenderDrawRect(Renderer, &Rect);
-        SDL_RenderPresent(Renderer);
+                SDL_RenderCopy(Renderer, Background, 0, 0);
+                // SDL_RenderCopy(Renderer, Paddle, 0, &MyRect);
+                // SDL_RenderCopy(Renderer, Ball, 0, 0);
+                SDL_RenderPresent(Renderer);
+
+                break;
+            }
+            case State_Menu:
+            {
+                break;
+            }
+            case State_Pause:
+            {
+                SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
+                SDL_RenderClear(Renderer);
+
+                SDL_SetTextureColorMod(Background, 100, 100, 100);
+                SDL_RenderCopy(Renderer, Background, 0, 0);
+
+                // SDL_RenderCopy(Renderer, Paddle, 0, &MyRect);
+                // SDL_RenderCopy(Renderer, Ball, 0, 0);
+                SDL_RenderPresent(Renderer);
+
+                break;
+            }
+            case State_End:
+            {
+                break;
+            }
+        }
+
+
+        Gamestate.FrameEnd = SDL_GetPerformanceCounter();
+        Gamestate.DeltaTime = (r64)((Gamestate.FrameEnd - Gamestate.FrameStart) * 1000.0f) / Gamestate.CounterFreq;
+        Gamestate.DeltaTime /= 1000.0f;
     }
 
     return 0;
