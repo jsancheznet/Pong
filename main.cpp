@@ -19,7 +19,7 @@
 #define ZeroArray(Ptr, Size) ZeroMemory(Ptr, Size)
 #endif
 
-typedef char     u8;
+typedef uint8_t   u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -34,9 +34,9 @@ typedef i32      b32;
 //
 // Image Assets
 //
-#include "../assets/background.xpm" // static char *BackgroundXpm[]
-#include "../assets/ball.xpm"       // static char *BallXpm[]
-#include "../assets/paddle.xpm"     // static char *PaddleXpm[]
+#include "background_img.h"
+#include "paddle_img.h"
+#include "ball_img.h"
 
 enum state
 {
@@ -48,8 +48,8 @@ enum state
 
 struct keyboard
 {
-    const Uint8 *State;
-    Uint8 *PrevState;
+    const u8 *State;
+    u8 *PrevState;
     i32 Numkeys;
 };
 
@@ -79,16 +79,18 @@ static gamestate Gamestate = {};
 static keyboard Keyboard = {};
 static mouse Mouse = {};
 
-SDL_Texture *MySDL_TextureFromXPM(SDL_Renderer *Renderer, char **Xpm)
+SDL_Texture *MySDL_LoadImageFromArray(SDL_Renderer *Renderer, unsigned char *Data, i32 Size)
 {
     SDL_Texture *Result = NULL;
-    SDL_Surface *Surface = IMG_ReadXPMFromArray(Xpm);
+    SDL_Surface *Surface = NULL;
+
+    Surface = IMG_Load_RW(SDL_RWFromMem((void*)Data, Size), 1);
+    Assert(Surface);
 
     Result = SDL_CreateTextureFromSurface(Renderer, Surface);
-    SDL_FreeSurface(Surface);
     Assert(Result);
 
-    return Result;
+    return (Result);
 }
 
 i32 main(i32 argc, char **argv)
@@ -101,15 +103,14 @@ i32 main(i32 argc, char **argv)
                                                 SDL_RENDERER_ACCELERATED |
                                                 SDL_RENDERER_PRESENTVSYNC);
 
-
     // Load Textures
-    SDL_Texture *Background = MySDL_TextureFromXPM(Renderer, BackgroundXpm);
-    SDL_Texture *Paddle = MySDL_TextureFromXPM(Renderer, PaddleXpm);
-    SDL_Texture *Ball = MySDL_TextureFromXPM(Renderer, BallXpm);
+    SDL_Texture *Background = MySDL_LoadImageFromArray(Renderer, _BackgroundBmp, _SizeBackgroundBmp);
+    SDL_Texture *Ball = MySDL_LoadImageFromArray(Renderer, _BallBmp, _SizeBallBmp);
+    SDL_Texture *Paddle = MySDL_LoadImageFromArray(Renderer, _PaddleBmp, _SizePaddleBmp);
 
     // Keyboard Setup
     Keyboard.State = SDL_GetKeyboardState(&Keyboard.Numkeys);
-    Keyboard.PrevState = (Uint8*)malloc(sizeof(u8) * Keyboard.Numkeys);
+    Keyboard.PrevState = (u8*)malloc(sizeof(u8) * Keyboard.Numkeys);
     ZeroMem(Keyboard.PrevState, sizeof(u8) * Keyboard.Numkeys);
 
     // Timer Setup
@@ -138,6 +139,7 @@ i32 main(i32 argc, char **argv)
         //
         // Update
         //
+
         switch(Gamestate.CurrentState)
         {
             case State_Game:
@@ -180,6 +182,7 @@ i32 main(i32 argc, char **argv)
         //
         // Render
         //
+
         switch(Gamestate.CurrentState)
         {
             case State_Game:
@@ -188,9 +191,8 @@ i32 main(i32 argc, char **argv)
                 SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
                 SDL_RenderClear(Renderer);
 
-                SDL_RenderCopy(Renderer, Background, 0, 0);
-                // SDL_RenderCopy(Renderer, Paddle, 0, &MyRect);
-                // SDL_RenderCopy(Renderer, Ball, 0, 0);
+                SDL_RenderCopy(Renderer, Background, NULL, NULL);
+
                 SDL_RenderPresent(Renderer);
 
                 break;
