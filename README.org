@@ -10,6 +10,7 @@
 ** Tools
 - SDL Multimedia Library
 - SDL_TTF
+- SDL_Image
 
 ** How to build
 *** Windows
@@ -17,4 +18,4 @@ TODO, write how to compile on windows
 *** Linux
 TODO, write how to compile on Linux
 *** MacOS
-TODO, write how to compile on Windows
+TODO, write how to compile on MacOs
