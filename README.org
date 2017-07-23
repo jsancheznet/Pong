@@ -17,5 +17,3 @@
 TODO, write how to compile on windows
 *** Linux
 TODO, write how to compile on Linux
-*** MacOS
-TODO, write how to compile on MacOs
