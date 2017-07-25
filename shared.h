@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #pragma warning(disable: 4189)
 #pragma warning(disable: 4201)
 #pragma warning(disable: 4100)

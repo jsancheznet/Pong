@@ -1,11 +1,9 @@
 // TODO: Statically Link Executable
 
-#include <windows.h>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
 #include <SDL_mixer.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 
@@ -14,9 +12,6 @@
 //
 // Assets
 //
-#include "assets/background_img.h"
-#include "assets/paddle_img.h"
-#include "assets/ball_img.h"
 #include "assets/8bit_font.h"
 #include "assets/sound_beep_wav.h"
 #include "assets/sound_peep_wav.h"
@@ -51,31 +46,14 @@ struct mouse
     u32 PrevState;
 };
 
-struct paddle
-{
-    SDL_Texture *Texture = NULL;
-    SDL_Rect Rect = {};
-};
-
-struct ball
-{
-    SDL_Texture *Texture = NULL;
-    SDL_Rect Rect = {};
-    i32 Radius;
-};
-
 struct gamestate
 {
     state CurrentState;
 
-    ball Ball = {};
-    paddle PlayerOne = {};
-    paddle PlayerTwo = {};
-
-    // Game Textures
-    SDL_Texture *TextureBackground = NULL;
-    SDL_Texture *TextureBall = NULL;
-    SDL_Texture *TexturePaddle = NULL;
+    SDL_Rect Background[3] = {};
+    SDL_Rect Ball = {};
+    SDL_Rect PlayerOne = {};
+    SDL_Rect PlayerTwo = {};
 
     // Font
     TTF_Font *Font = NULL;
@@ -100,6 +78,7 @@ global_variable mouse Mouse = {};
 global_variable SDL_Window *Window;
 global_variable SDL_Renderer *Renderer;
 
+#if 0
 SDL_Texture *MySDL_LoadImageFromArray(unsigned char *Data, i32 Size)
 {
     SDL_Texture *Result = NULL;
@@ -113,15 +92,11 @@ SDL_Texture *MySDL_LoadImageFromArray(unsigned char *Data, i32 Size)
 
     return (Result);
 }
+#endif
 
 int LoadAssets(void)
 {
-    // Load Pong Textures
-    Gamestate.TextureBackground = MySDL_LoadImageFromArray(_BackgroundBmp, _SizeBackgroundBmp);
-    Gamestate.TextureBall       = MySDL_LoadImageFromArray(_BallBmp, _SizeBallBmp);
-    Gamestate.TexturePaddle     = MySDL_LoadImageFromArray(_PaddleBmp, _SizePaddleBmp);
-
-    // Sounds
+    // Load Sounds
     Gamestate.SoundBeep = Mix_LoadWAV_RW(SDL_RWFromMem((void*)_beep_wav, _Size_beep_wav), 1);
     Assert(Gamestate.SoundBeep);
     Gamestate.SoundPeep = Mix_LoadWAV_RW(SDL_RWFromMem((void*)_peep_wav, _Size_peep_wav), 1);
@@ -133,26 +108,28 @@ int LoadAssets(void)
     Gamestate.Font = TTF_OpenFontRW(SDL_RWFromMem((void*)_Font, _SizeFont), 1, 39);
     Assert(Gamestate.Font);
 
-    // Generate Main Menu text textures
+    const i32 BgLineSpan = 10;
+    // Background Top Line
+    Gamestate.Background[0] = {0, 0, WINDOW_WIDTH, BgLineSpan};
+    // Background Bottom Line
+    Gamestate.Background[1] = {0, WINDOW_HEIGHT - BgLineSpan, WINDOW_WIDTH, BgLineSpan};
+    // Background Mid Line
+    Gamestate.Background[2] = {WINDOW_WIDTH / 2 - (BgLineSpan / 2), 0, BgLineSpan, WINDOW_HEIGHT};
 
-    // TODO: Remove all these magic numbers
     // Create PlayerOne
-    Gamestate.PlayerOne.Texture = Gamestate.TexturePaddle;
-    Gamestate.PlayerOne.Rect = { 5, WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-                                 PADDLE_WIDTH, PADDLE_HEIGHT};
+    const int PaddlePadding = 5;
+    Gamestate.PlayerOne = { PaddlePadding, WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
+                            PADDLE_WIDTH, PADDLE_HEIGHT};
 
     // Create PlayerTwo
-    Gamestate.PlayerTwo.Texture = Gamestate.TexturePaddle;
-    Gamestate.PlayerTwo.Rect = { WINDOW_WIDTH - 5 - PADDLE_WIDTH,
-                                 WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-                                 PADDLE_WIDTH, PADDLE_HEIGHT};
+    Gamestate.PlayerTwo = { WINDOW_WIDTH - PaddlePadding - PADDLE_WIDTH,
+                            WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
+                            PADDLE_WIDTH, PADDLE_HEIGHT};
 
     // Create Ball
-    Gamestate.Ball.Texture = Gamestate.TextureBall;
-    Gamestate.Ball.Radius = BALL_RADIUS;
-    Gamestate.Ball.Rect = {WINDOW_WIDTH / 2 - BALL_RADIUS,
-                           WINDOW_HEIGHT / 2 - BALL_RADIUS,
-                           BALL_RADIUS * 2, BALL_RADIUS * 2};
+    Gamestate.Ball = {WINDOW_WIDTH / 2 - BALL_RADIUS,
+                      WINDOW_HEIGHT / 2 - BALL_RADIUS,
+                      BALL_RADIUS * 2, BALL_RADIUS * 2};
 
     return true;
 }
@@ -231,12 +208,12 @@ i32 main(i32 argc, char **argv)
 
                 if(Keyboard.State[SDL_SCANCODE_W])
                 {
-                    Gamestate.PlayerOne.Rect.y -= 2;
+                    Gamestate.PlayerOne.y -= 2;
                 }
 
                 if(Keyboard.State[SDL_SCANCODE_S])
                 {
-                    Gamestate.PlayerOne.Rect.y += 2;
+                    Gamestate.PlayerOne.y += 2;
                 }
 
                 break;
@@ -277,17 +254,13 @@ i32 main(i32 argc, char **argv)
             {
 
                 SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
-                SDL_SetTextureColorMod(Gamestate.TextureBackground, 255, 255, 255);
-                SDL_SetTextureColorMod(Gamestate.PlayerOne.Texture, 255, 255, 255);
-                SDL_SetTextureColorMod(Gamestate.PlayerTwo.Texture, 255, 255, 255);
-                SDL_SetTextureColorMod(Gamestate.Ball.Texture, 255, 255, 255);
-
                 SDL_RenderClear(Renderer);
 
-                SDL_RenderCopy(Renderer, Gamestate.TextureBackground, NULL, NULL);
-                SDL_RenderCopy(Renderer, Gamestate.PlayerOne.Texture, NULL, &Gamestate.PlayerOne.Rect);
-                SDL_RenderCopy(Renderer, Gamestate.PlayerTwo.Texture, NULL, &Gamestate.PlayerTwo.Rect);
-                SDL_RenderCopy(Renderer, Gamestate.Ball.Texture, NULL, &Gamestate.Ball.Rect);
+                SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
+                SDL_RenderFillRects(Renderer, Gamestate.Background, 3);
+                SDL_RenderFillRect(Renderer, &Gamestate.PlayerOne);
+                SDL_RenderFillRect(Renderer, &Gamestate.PlayerTwo);
+                SDL_RenderFillRect(Renderer, &Gamestate.Ball);
 
                 SDL_RenderPresent(Renderer);
 
@@ -301,19 +274,6 @@ i32 main(i32 argc, char **argv)
             {
                 SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
                 SDL_RenderClear(Renderer);
-
-                // Draw Tinted Background Game_State
-                SDL_SetTextureColorMod(Gamestate.TextureBackground, 100, 100, 100);
-                SDL_RenderCopy(Renderer, Gamestate.TextureBackground, 0, 0);
-
-                SDL_SetTextureColorMod(Gamestate.PlayerOne.Texture, 100, 100, 100);
-                SDL_RenderCopy(Renderer, Gamestate.PlayerOne.Texture, NULL, &Gamestate.PlayerOne.Rect);
-
-                SDL_SetTextureColorMod(Gamestate.PlayerTwo.Texture, 100, 100, 100);
-                SDL_RenderCopy(Renderer, Gamestate.PlayerTwo.Texture, NULL, &Gamestate.PlayerTwo.Rect);
-
-                SDL_SetTextureColorMod(Gamestate.Ball.Texture, 100, 100, 100);
-                SDL_RenderCopy(Renderer, Gamestate.Ball.Texture, NULL, &Gamestate.Ball.Rect);
 
                 SDL_RenderPresent(Renderer);
 
