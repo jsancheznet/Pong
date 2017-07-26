@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "pong_math.h"
 #include "shared.h"
 
 //
@@ -26,7 +27,6 @@
 enum state
 {
     State_Game,
-    State_Menu,
     State_Pause,
     State_End
 };
@@ -46,14 +46,31 @@ struct mouse
     u32 PrevState;
 };
 
+struct ball
+{
+    v2 Velocity;
+    v2 Acceleration;
+    v2 Position;
+    r32 Speed;
+};
+
+struct paddle
+{
+    v2 Position;
+    v2 Velocity;
+    v2 Acceleration;
+    r32 Speed;
+};
+
 struct gamestate
 {
     state CurrentState;
 
     SDL_Rect Background[3] = {};
-    SDL_Rect Ball = {};
-    SDL_Rect PlayerOne = {};
-    SDL_Rect PlayerTwo = {};
+
+    ball Ball = {};
+    paddle PlayerOne = {};
+    paddle PlayerTwo = {};
 
     // Font
     TTF_Font *Font = NULL;
@@ -72,11 +89,21 @@ struct gamestate
 };
 
 global_variable i32 IsRunning = true;
+global_variable r64 DeltaTime = 0;
 global_variable gamestate Gamestate = {};
 global_variable keyboard Keyboard = {};
 global_variable mouse Mouse = {};
 global_variable SDL_Window *Window;
 global_variable SDL_Renderer *Renderer;
+
+
+void EntityUpdate(v2 *Position, v2 *Velocity, v2 *Acceleration, r64 DT)
+{
+    r32 dt = (r32)DT;
+    *Position = 0.5f * (*Acceleration) * (dt * dt) + *Velocity + *Position;
+    *Velocity = *Acceleration * dt + *Velocity;
+    *Acceleration = {};
+}
 
 #if 0
 SDL_Texture *MySDL_LoadImageFromArray(unsigned char *Data, i32 Size)
@@ -117,9 +144,9 @@ int LoadAssets(void)
     Gamestate.Background[2] = {WINDOW_WIDTH / 2 - (BgLineSpan / 2), 0, BgLineSpan, WINDOW_HEIGHT};
 
     // Create PlayerOne
-    const int PaddlePadding = 5;
-    Gamestate.PlayerOne = { PaddlePadding, WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-                            PADDLE_WIDTH, PADDLE_HEIGHT};
+    const int PaddlePadding = 10;
+    Gamestate.PlayerOne.Position = {(r32)PaddlePadding, (r32)(WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2)};
+    Gamestate.PlayerOne.Speed = 4.0f;
 
     // Create PlayerTwo
     Gamestate.PlayerTwo = { WINDOW_WIDTH - PaddlePadding - PADDLE_WIDTH,
@@ -127,11 +154,37 @@ int LoadAssets(void)
                             PADDLE_WIDTH, PADDLE_HEIGHT};
 
     // Create Ball
-    Gamestate.Ball = {WINDOW_WIDTH / 2 - BALL_RADIUS,
-                      WINDOW_HEIGHT / 2 - BALL_RADIUS,
-                      BALL_RADIUS * 2, BALL_RADIUS * 2};
+    Gamestate.Ball.Position = {(r32)(WINDOW_WIDTH / 2 - BALL_RADIUS),
+                               (r32)(WINDOW_HEIGHT / 2 - BALL_RADIUS)};
 
     return true;
+}
+
+enum direction
+{
+    UP,
+    DOWN,
+};
+void PaddleMove(SDL_Rect *Rect, direction Direction)
+{
+    if(Direction == UP)
+    {
+        Rect->y -= 2;
+    }
+    else
+    {
+        Rect->y += 2;
+    }
+
+    // Wall Collision
+    if(Rect->y <= 0)
+    {
+        Rect->y = 0;
+    }
+    if(Rect->y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
+    {
+        Rect->y = WINDOW_HEIGHT - PADDLE_HEIGHT;
+    }
 }
 
 i32 main(i32 argc, char **argv)
@@ -144,11 +197,23 @@ i32 main(i32 argc, char **argv)
     // TODO: Check for error
     Window = SDL_CreateWindow("Pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                               WINDOW_WIDTH, WINDOW_HEIGHT, NULL);
-
-    // TODO: Check for error
-    Renderer = SDL_CreateRenderer(Window, -1,
-                                  SDL_RENDERER_ACCELERATED |
-                                  SDL_RENDERER_PRESENTVSYNC);
+    if(Window)
+    {
+        // TODO: Check for error
+        Renderer = SDL_CreateRenderer(Window, -1,
+                                      SDL_RENDERER_ACCELERATED |
+                                      SDL_RENDERER_PRESENTVSYNC);
+        if(!Renderer)
+        {
+            printf("Failed creating Renderer, aborting\n");
+            return -2;
+        }
+    }
+    else
+    {
+        printf("Failed Creating  Window, aborting\n");
+        return -1;
+    }
 
     //Initialize SDL_mixer
     if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
@@ -156,7 +221,7 @@ i32 main(i32 argc, char **argv)
         printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
     }
     // Set volume to 1/8 max volume
-    Mix_Volume(-1, MIX_MAX_VOLUME / 8);
+    Mix_Volume(-1, MIX_MAX_VOLUME / 10);
 
     LoadAssets();
 
@@ -205,22 +270,63 @@ i32 main(i32 argc, char **argv)
                     Mix_PlayChannel( -1, Gamestate.SoundBeep, 0 );
                 }
 
-
+                // Movement Player1
                 if(Keyboard.State[SDL_SCANCODE_W])
                 {
-                    Gamestate.PlayerOne.y -= 2;
+                    Gamestate.PlayerOne.Acceleration.y -= Gamestate.PlayerOne.Speed;
                 }
-
                 if(Keyboard.State[SDL_SCANCODE_S])
                 {
-                    Gamestate.PlayerOne.y += 2;
+                    Gamestate.PlayerOne.Acceleration.y += Gamestate.PlayerOne.Speed;
                 }
 
-                break;
-            }
-            case State_Menu:
-            {
-                printf("We are in Menu State, it is empty!\n");
+                if(Keyboard.State[SDL_SCANCODE_SPACE])
+                {
+                    Gamestate.Ball.Acceleration += v2{5.0f, 5.0f};
+                }
+
+                // Ball Update
+                EntityUpdate(&Gamestate.Ball.Position,
+                             &Gamestate.Ball.Velocity,
+                             &Gamestate.Ball.Acceleration,
+                             DeltaTime);
+
+                // Ball PlayerOne
+                EntityUpdate(&Gamestate.PlayerOne.Position,
+                             &Gamestate.PlayerOne.Velocity,
+                             &Gamestate.PlayerOne.Acceleration,
+                             DeltaTime);
+
+                // Ball Collision
+                if(Gamestate.Ball.Position.x <= 0)
+                {
+                    Gamestate.Ball.Velocity.x *= -1.0f;
+                }
+                if(Gamestate.Ball.Position.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
+                {
+                    Gamestate.Ball.Velocity.x *= -1.0f;
+                }
+                if(Gamestate.Ball.Position.y <= 0)
+                {
+                    Gamestate.Ball.Velocity.y *= -1.0f;
+                }
+                if(Gamestate.Ball.Position.y >= WINDOW_HEIGHT - BALL_RADIUS * 2)
+                {
+                    Gamestate.Ball.Velocity.y *= -1.0f;
+                }
+
+                // Player Collision
+                if(Gamestate.PlayerOne.Position.y <= 0)
+                {
+                    Gamestate.PlayerOne.Position.y = 0;
+                    Gamestate.PlayerOne.Velocity = {};
+                }
+                if(Gamestate.PlayerOne.Position.y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
+                {
+                    Gamestate.PlayerOne.Position.y = WINDOW_HEIGHT - PADDLE_HEIGHT;
+                    Gamestate.PlayerOne.Velocity = {};
+                }
+
                 break;
             }
             case State_Pause:
@@ -258,22 +364,61 @@ i32 main(i32 argc, char **argv)
 
                 SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
                 SDL_RenderFillRects(Renderer, Gamestate.Background, 3);
-                SDL_RenderFillRect(Renderer, &Gamestate.PlayerOne);
-                SDL_RenderFillRect(Renderer, &Gamestate.PlayerTwo);
-                SDL_RenderFillRect(Renderer, &Gamestate.Ball);
+
+                SDL_SetRenderDrawColor(Renderer, 40, 140, 40, 255);
+
+                // Create Rects, and Draw Players
+                SDL_Rect P1R = {(i32)Gamestate.PlayerOne.Position.x,
+                                (i32)Gamestate.PlayerOne.Position.y,
+                                PADDLE_WIDTH,
+                                PADDLE_HEIGHT};
+                SDL_Rect P2R = {(i32)Gamestate.PlayerTwo.Position.x,
+                                (i32)Gamestate.PlayerTwo.Position.y,
+                                PADDLE_WIDTH,
+                                PADDLE_HEIGHT};
+                SDL_RenderFillRect(Renderer, &P1R);
+                SDL_RenderFillRect(Renderer, &P2R);
+
+                SDL_Rect BallRect = {(i32)Gamestate.Ball.Position.x,
+                                     (i32)Gamestate.Ball.Position.y,
+                                     BALL_RADIUS * 2,
+                                     BALL_RADIUS * 2};
+
+                SDL_RenderFillRect(Renderer, &BallRect);
 
                 SDL_RenderPresent(Renderer);
 
-                break;
-            }
-            case State_Menu:
-            {
                 break;
             }
             case State_Pause:
             {
                 SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
                 SDL_RenderClear(Renderer);
+
+                SDL_SetRenderDrawColor(Renderer, 0, 80, 10, 255);
+                SDL_RenderFillRects(Renderer, Gamestate.Background, 3);
+
+                SDL_SetRenderDrawColor(Renderer, 10, 100, 10, 255);
+
+                SDL_Rect P1R = {(i32)Gamestate.PlayerOne.Position.x,
+                                (i32)Gamestate.PlayerOne.Position.y,
+                                PADDLE_WIDTH,
+                                PADDLE_HEIGHT};
+
+                SDL_Rect P2R = {(i32)Gamestate.PlayerTwo.Position.x,
+                                (i32)Gamestate.PlayerTwo.Position.y,
+                                PADDLE_WIDTH,
+                                PADDLE_HEIGHT};
+
+                SDL_RenderFillRect(Renderer, &P1R);
+                SDL_RenderFillRect(Renderer, &P2R);
+
+
+                SDL_Rect BallRect = {(i32)Gamestate.Ball.Position.x,
+                                     (i32)Gamestate.Ball.Position.y,
+                                     BALL_RADIUS*2,
+                                     BALL_RADIUS*2};
+                SDL_RenderFillRect(Renderer, &BallRect);
 
                 SDL_RenderPresent(Renderer);
 
@@ -287,8 +432,8 @@ i32 main(i32 argc, char **argv)
 
 
         Gamestate.FrameEnd = SDL_GetPerformanceCounter();
-        Gamestate.DeltaTime = (r64)((Gamestate.FrameEnd - Gamestate.FrameStart) * 1000.0f) / Gamestate.CounterFreq;
-        Gamestate.DeltaTime /= 1000.0f;
+        DeltaTime = (r64)((Gamestate.FrameEnd - Gamestate.FrameStart) * 1000.0f) / Gamestate.CounterFreq;
+        DeltaTime /= 1000.0f;
     }
 
     return 0;
