@@ -111,6 +111,14 @@ inline v2 operator-(v2 A, v2 B)
     return (Result);
 }
 
+inline v2& operator-=(v2 &A, v2 B)
+{
+    A.x -= B.x;
+    A.y -= B.y;
+    return A;
+}
+
+
 inline v2 operator/(v2 Vec, r32 Scalar)
 {
     v2 Result;

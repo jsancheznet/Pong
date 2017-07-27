@@ -21,7 +21,7 @@
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
 #define PADDLE_WIDTH 15
-#define PADDLE_HEIGHT 100
+#define PADDLE_HEIGHT 99
 #define BALL_RADIUS 10
 
 enum state
@@ -48,18 +48,18 @@ struct mouse
 
 struct ball
 {
-    v2 Velocity;
-    v2 Acceleration;
     v2 Position;
-    r32 Speed;
+    v2 Speed;
+
+    SDL_Rect Rect;
 };
 
 struct paddle
 {
-    v2 Position;
-    v2 Velocity;
-    v2 Acceleration;
+    i32 Score;
     r32 Speed;
+    v2 Position;
+    SDL_Rect Rect;
 };
 
 struct gamestate
@@ -67,10 +67,6 @@ struct gamestate
     state CurrentState;
 
     SDL_Rect Background[3] = {};
-
-    ball Ball = {};
-    paddle PlayerOne = {};
-    paddle PlayerTwo = {};
 
     // Font
     TTF_Font *Font = NULL;
@@ -95,7 +91,9 @@ global_variable keyboard Keyboard = {};
 global_variable mouse Mouse = {};
 global_variable SDL_Window *Window;
 global_variable SDL_Renderer *Renderer;
-
+global_variable ball Ball = {};
+global_variable paddle PlayerOne = {};
+global_variable paddle PlayerTwo = {};
 
 void EntityUpdate(v2 *Position, v2 *Velocity, v2 *Acceleration, r64 DT)
 {
@@ -144,47 +142,26 @@ int LoadAssets(void)
     Gamestate.Background[2] = {WINDOW_WIDTH / 2 - (BgLineSpan / 2), 0, BgLineSpan, WINDOW_HEIGHT};
 
     // Create PlayerOne
+    const r32 PlayerSpeed = 5.0f;
     const int PaddlePadding = 10;
-    Gamestate.PlayerOne.Position = {(r32)PaddlePadding, (r32)(WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2)};
-    Gamestate.PlayerOne.Speed = 4.0f;
+    PlayerOne.Position = {(r32)PaddlePadding, (r32)(WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2)};
+    PlayerOne.Speed = PlayerSpeed;
+    PlayerOne.Rect = {(i32)PlayerOne.Position.x, (i32)PlayerOne.Position.y,
+                      PADDLE_WIDTH, PADDLE_HEIGHT};
+    PlayerOne.Score = 0;
 
     // Create PlayerTwo
-    Gamestate.PlayerTwo = { WINDOW_WIDTH - PaddlePadding - PADDLE_WIDTH,
-                            WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-                            PADDLE_WIDTH, PADDLE_HEIGHT};
+    PlayerTwo.Position = {(r32)WINDOW_WIDTH - PaddlePadding - PADDLE_WIDTH, WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2};
+    PlayerTwo.Speed = PlayerSpeed;
+    PlayerTwo.Rect = {(i32)PlayerTwo.Position.x, (i32)PlayerTwo.Position.y,
+                      PADDLE_WIDTH, PADDLE_HEIGHT};
+    PlayerTwo.Score = 0;
 
     // Create Ball
-    Gamestate.Ball.Position = {(r32)(WINDOW_WIDTH / 2 - BALL_RADIUS),
-                               (r32)(WINDOW_HEIGHT / 2 - BALL_RADIUS)};
+    Ball.Position = {(r32)(WINDOW_WIDTH / 2 - BALL_RADIUS), (r32)(WINDOW_HEIGHT / 2 - BALL_RADIUS)};
+    Ball.Rect = {(i32)Ball.Position.x, (i32)Ball.Position.y, BALL_RADIUS * 2, BALL_RADIUS * 2};
 
     return true;
-}
-
-enum direction
-{
-    UP,
-    DOWN,
-};
-void PaddleMove(SDL_Rect *Rect, direction Direction)
-{
-    if(Direction == UP)
-    {
-        Rect->y -= 2;
-    }
-    else
-    {
-        Rect->y += 2;
-    }
-
-    // Wall Collision
-    if(Rect->y <= 0)
-    {
-        Rect->y = 0;
-    }
-    if(Rect->y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
-    {
-        Rect->y = WINDOW_HEIGHT - PADDLE_HEIGHT;
-    }
 }
 
 i32 main(i32 argc, char **argv)
@@ -208,6 +185,7 @@ i32 main(i32 argc, char **argv)
             printf("Failed creating Renderer, aborting\n");
             return -2;
         }
+        SDL_SetRenderDrawBlendMode(Renderer, SDL_BLENDMODE_BLEND);
     }
     else
     {
@@ -267,64 +245,112 @@ i32 main(i32 argc, char **argv)
 
                 if(Keyboard.State[SDL_SCANCODE_RETURN])
                 {
-                    Mix_PlayChannel( -1, Gamestate.SoundBeep, 0 );
                 }
 
                 // Movement Player1
                 if(Keyboard.State[SDL_SCANCODE_W])
                 {
-                    Gamestate.PlayerOne.Acceleration.y -= Gamestate.PlayerOne.Speed;
+                    PlayerOne.Position.y -= PlayerOne.Speed;
                 }
                 if(Keyboard.State[SDL_SCANCODE_S])
                 {
-                    Gamestate.PlayerOne.Acceleration.y += Gamestate.PlayerOne.Speed;
+                    PlayerOne.Position.y += PlayerOne.Speed;
+                }
+
+                // Movement Player2
+                if(Ball.Position.y <= PlayerTwo.Position.y - (PADDLE_HEIGHT) / 2)
+                {
+                    PlayerTwo.Position.y -= PlayerTwo.Speed;
+                }
+                else if(Ball.Position.y >= PlayerTwo.Position.y - (PADDLE_HEIGHT / 2))
+                {
+                    PlayerTwo.Position.y += PlayerTwo.Speed;
                 }
 
                 if(Keyboard.State[SDL_SCANCODE_SPACE])
                 {
-                    Gamestate.Ball.Acceleration += v2{5.0f, 5.0f};
+                    Ball.Speed += V2(-1.0f, 1.0f);
                 }
+
+                PlayerOne.Rect.x = (i32)PlayerOne.Position.x;
+                PlayerOne.Rect.y = (i32)PlayerOne.Position.y;
 
                 // Ball Update
-                EntityUpdate(&Gamestate.Ball.Position,
-                             &Gamestate.Ball.Velocity,
-                             &Gamestate.Ball.Acceleration,
-                             DeltaTime);
+                Ball.Position += Ball.Speed;
+                Ball.Rect.x = (i32)Ball.Position.x;
+                Ball.Rect.y = (i32)Ball.Position.y;
 
-                // Ball PlayerOne
-                EntityUpdate(&Gamestate.PlayerOne.Position,
-                             &Gamestate.PlayerOne.Velocity,
-                             &Gamestate.PlayerOne.Acceleration,
-                             DeltaTime);
+                SDL_Rect Result = {};
+                if(SDL_IntersectRect(&PlayerOne.Rect, &Ball.Rect, &Result) == SDL_TRUE)
+                {
+                    printf("x: %d\ty: %d\tw: %d\th: %d\n", Result.x, Result.y, Result.w, Result.h);
 
-                // Ball Collision
-                if(Gamestate.Ball.Position.x <= 0)
-                {
-                    Gamestate.Ball.Velocity.x *= -1.0f;
-                }
-                if(Gamestate.Ball.Position.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
-                {
-                    Gamestate.Ball.Velocity.x *= -1.0f;
-                }
-                if(Gamestate.Ball.Position.y <= 0)
-                {
-                    Gamestate.Ball.Velocity.y *= -1.0f;
-                }
-                if(Gamestate.Ball.Position.y >= WINDOW_HEIGHT - BALL_RADIUS * 2)
-                {
-                    Gamestate.Ball.Velocity.y *= -1.0f;
+                    Mix_PlayChannel( -1, Gamestate.SoundPeep, 0 );
+
+                    if(Result.w < Result.h)
+                    {
+                        Ball.Position.x += Result.w;
+                        Ball.Speed.x *= -1.0f;
+
+                        // Hits Top
+                        if(Ball.Position.y - PlayerOne.Position.y <= 33)
+                        {
+                            Ball.Speed.y -= 1;
+                            Ball.Speed.x *= -1.0f;
+                        }
+                        // Hits Mid
+                        if(Ball.Position.y - PlayerOne.Position.y >= 33 &&
+                           Ball.Position.y - PlayerOne.Position.y <= 66)
+                        {
+                            Ball.Speed.y *= -1.0f;
+                        }
+                        // Hits Bot
+                        if(Ball.Position.y - PlayerOne.Position.y >= 67)
+                        {
+                            Ball.Speed.y += 1.0f;
+                            Ball.Speed.y *= -1.0f;
+                        }
+                    }
+                    else if(Result.h < Result.w)
+                    {
+                        Ball.Position.y += Result.h;
+                    }
+                    else
+                    {
+                        Ball.Position.x += Result.w;
+                        Ball.Position.y += Result.h;
+                    }
                 }
 
-                // Player Collision
-                if(Gamestate.PlayerOne.Position.y <= 0)
+                // Score
+                if(Ball.Position.x <= 0)
                 {
-                    Gamestate.PlayerOne.Position.y = 0;
-                    Gamestate.PlayerOne.Velocity = {};
+                    PlayerTwo.Score++;
+                    Ball.Position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    if(PlayerTwo.Score >= 5)
+                    {
+                        Gamestate.CurrentState = State_End;
+                    }
                 }
-                if(Gamestate.PlayerOne.Position.y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
+                if(Ball.Position.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
                 {
-                    Gamestate.PlayerOne.Position.y = WINDOW_HEIGHT - PADDLE_HEIGHT;
-                    Gamestate.PlayerOne.Velocity = {};
+                    PlayerOne.Score++;
+                    Ball.Position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    if(PlayerOne.Score >= 5)
+                    {
+                        Gamestate.CurrentState = State_End;
+                    }
+                }
+
+                if(Ball.Position.y <= 0)
+                {
+                    Ball.Speed.y *= -1.0f;
+                    Mix_PlayChannel( -1, Gamestate.SoundBeep, 0 );
+                }
+                if(Ball.Position.y >= WINDOW_HEIGHT - BALL_RADIUS * 2)
+                {
+                    Ball.Speed.y *= -1.0f;
+                    Mix_PlayChannel( -1, Gamestate.SoundBeep, 0 );
                 }
 
                 break;
@@ -346,7 +372,6 @@ i32 main(i32 argc, char **argv)
             }
             case State_End:
             {
-                printf("We are in End State, it is empty!\n");
                 break;
             }
         }
@@ -368,19 +393,19 @@ i32 main(i32 argc, char **argv)
                 SDL_SetRenderDrawColor(Renderer, 40, 140, 40, 255);
 
                 // Create Rects, and Draw Players
-                SDL_Rect P1R = {(i32)Gamestate.PlayerOne.Position.x,
-                                (i32)Gamestate.PlayerOne.Position.y,
+                SDL_Rect P1R = {(i32)PlayerOne.Position.x,
+                                (i32)PlayerOne.Position.y,
                                 PADDLE_WIDTH,
                                 PADDLE_HEIGHT};
-                SDL_Rect P2R = {(i32)Gamestate.PlayerTwo.Position.x,
-                                (i32)Gamestate.PlayerTwo.Position.y,
+                SDL_Rect P2R = {(i32)PlayerTwo.Position.x,
+                                (i32)PlayerTwo.Position.y,
                                 PADDLE_WIDTH,
                                 PADDLE_HEIGHT};
                 SDL_RenderFillRect(Renderer, &P1R);
                 SDL_RenderFillRect(Renderer, &P2R);
 
-                SDL_Rect BallRect = {(i32)Gamestate.Ball.Position.x,
-                                     (i32)Gamestate.Ball.Position.y,
+                SDL_Rect BallRect = {(i32)Ball.Position.x,
+                                     (i32)Ball.Position.y,
                                      BALL_RADIUS * 2,
                                      BALL_RADIUS * 2};
 
@@ -400,22 +425,19 @@ i32 main(i32 argc, char **argv)
 
                 SDL_SetRenderDrawColor(Renderer, 10, 100, 10, 255);
 
-                SDL_Rect P1R = {(i32)Gamestate.PlayerOne.Position.x,
-                                (i32)Gamestate.PlayerOne.Position.y,
+                SDL_Rect P1R = {(i32)PlayerOne.Position.x,
+                                (i32)PlayerOne.Position.y,
                                 PADDLE_WIDTH,
                                 PADDLE_HEIGHT};
-
-                SDL_Rect P2R = {(i32)Gamestate.PlayerTwo.Position.x,
-                                (i32)Gamestate.PlayerTwo.Position.y,
+                SDL_Rect P2R = {(i32)PlayerTwo.Position.x,
+                                (i32)PlayerTwo.Position.y,
                                 PADDLE_WIDTH,
                                 PADDLE_HEIGHT};
-
                 SDL_RenderFillRect(Renderer, &P1R);
                 SDL_RenderFillRect(Renderer, &P2R);
 
-
-                SDL_Rect BallRect = {(i32)Gamestate.Ball.Position.x,
-                                     (i32)Gamestate.Ball.Position.y,
+                SDL_Rect BallRect = {(i32)Ball.Position.x,
+                                     (i32)Ball.Position.y,
                                      BALL_RADIUS*2,
                                      BALL_RADIUS*2};
                 SDL_RenderFillRect(Renderer, &BallRect);
