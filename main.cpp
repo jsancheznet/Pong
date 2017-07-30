@@ -60,7 +60,7 @@ struct ball
 struct paddle
 {
     i32 Score;
-    r32 Speed;
+    i32 Speed;
     SDL_Rect Rect;
 };
 
@@ -219,7 +219,7 @@ int LoadAssets(void)
     Gamestate.Background[2] = {WINDOW_WIDTH / 2 - (BgLineSpan / 2), 0, BgLineSpan, WINDOW_HEIGHT}; // Background Mid Line
 
     // Create PlayerOne
-    const r32 PlayerSpeed = 5.0f;
+    const i32 PlayerSpeed = 5;
     const int PaddlePadding = 10;
     PlayerOne.Rect = {PaddlePadding, (WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2), PADDLE_WIDTH, PADDLE_HEIGHT};
     PlayerOne.Speed = PlayerSpeed;
@@ -267,7 +267,7 @@ void DrawScores(paddle *P1, paddle *P2)
         ScoreP2,
         Gamestate.FontBig, SCORE_TEXT_COLOR);
 
-    if(P1->Position.x <= WINDOW_WIDTH / 2)
+    if(P1->Rect.x <= WINDOW_WIDTH / 2)
     {
         // Its on the left side
         // Draw P1 on left, p2 on right
@@ -294,16 +294,16 @@ void DrawBackgroundAndScores()
 
 void DrawPaddlesAndBall()
 {
-    PlayerOne.Rect.x  = (i32)PlayerOne.Position.x;
-    PlayerOne.Rect.y  = (i32)PlayerOne.Position.y;
-    PlayerTwo.Rect.x  = (i32)PlayerTwo.Position.x;
-    PlayerTwo.Rect.y  = (i32)PlayerTwo.Position.y;
+
+    // PlayerOne.Rect.x  = (i32)PlayerOne.Position.x;
+    // PlayerOne.Rect.y  = (i32)PlayerOne.Position.y;
+    // PlayerTwo.Rect.x  = (i32)PlayerTwo.Position.x;
+    // PlayerTwo.Rect.y  = (i32)PlayerTwo.Position.y;
+    // Ball.Rect.x  = (i32)Ball.Position.x;
+    // Ball.Rect.y  = (i32)Ball.Position.y;
 
     SDL_RenderFillRect(Renderer, &PlayerOne.Rect);
     SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
-
-    Ball.Rect.x  = (i32)Ball.Position.x;
-    Ball.Rect.y  = (i32)Ball.Position.y;
 
     SDL_RenderFillRect(Renderer, &Ball.Rect);
 
@@ -398,26 +398,24 @@ i32 main(i32 argc, char **argv)
                     Gamestate.CurrentState = State_Pause;
                 }
 
-                // Movement Player1
+                // Movement PlayerOne
                 if(Keyboard.State[SDL_SCANCODE_W])
                 {
-                    PlayerOne.Position.y -= PlayerOne.Speed;
+                    PlayerOne.Rect.y -= PlayerOne.Speed;
                 }
-
                 if(Keyboard.State[SDL_SCANCODE_S])
                 {
-                    PlayerOne.Position.y += PlayerOne.Speed;
+                    PlayerOne.Rect.y += PlayerOne.Speed;
                 }
 
-                // Movement Player2
-                if(Ball.Position.y <= PlayerTwo.Position.y - (PADDLE_HEIGHT) / 2)
+                // AI Movement PlayerTwo
+                if(Ball.Rect.y <= PlayerTwo.Rect.y - (PADDLE_HEIGHT) / 2)
                 {
-                    PlayerTwo.Position.y -= PlayerTwo.Speed;
+                    PlayerTwo.Rect.y -= PlayerTwo.Speed;
                 }
-
-                else if(Ball.Position.y >= PlayerTwo.Position.y + (PADDLE_HEIGHT / 2))
+                else if(Ball.Rect.y >= PlayerTwo.Rect.y + (PADDLE_HEIGHT / 2))
                 {
-                    PlayerTwo.Position.y += PlayerTwo.Speed;
+                    PlayerTwo.Rect.y += PlayerTwo.Speed;
                 }
 
                 if(Keyboard.State[SDL_SCANCODE_SPACE])
@@ -425,50 +423,50 @@ i32 main(i32 argc, char **argv)
                     Ball.Speed += V2(-0.5f, 1.0f);
                 }
 
-                PlayerOne.Rect.x = (i32)PlayerOne.Position.x;
-                PlayerOne.Rect.y = (i32)PlayerOne.Position.y;
+                PlayerOne.Rect.x = (i32)PlayerOne.Rect.x;
+                PlayerOne.Rect.y = (i32)PlayerOne.Rect.y;
 
                 // Ball Update
-                Ball.Position += Ball.Speed;
+                Ball.Rect.x += (i32)Ball.Speed.x;
+                Ball.Rect.y += (i32)Ball.Speed.y;
 
                 // Calculate collisions
                 Collision(&PlayerOne, &Ball);
                 Collision(&PlayerTwo, &Ball);
 
                 // Ball Collision on Top and Bot walls
-                if(Ball.Position.y <= 0)
+                if(Ball.Rect.y <= 0)
                 {
                     Ball.Speed.y *= -1.0f;
                     Mix_PlayChannel( -1, Gamestate.Beep, 0 );
                 }
-                if(Ball.Position.y >= WINDOW_HEIGHT - BALL_RADIUS * 2)
+                if(Ball.Rect.y >= WINDOW_HEIGHT - BALL_RADIUS * 2)
                 {
                     Ball.Speed.y *= -1.0f;
                     Mix_PlayChannel( -1, Gamestate.Beep, 0 );
                 }
 
                 // Check if someone scored, put ball back into position
-                if(Ball.Position.x <= 0)
+                if(Ball.Rect.x <= 0)
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerTwo.Score++;
-                    Ball.Position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    Ball.Rect = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
                     if(PlayerTwo.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
                     }
                 }
-                if(Ball.Position.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
+                if(Ball.Rect.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerOne.Score++;
-                    Ball.Position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    Ball.Rect = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
                     if(PlayerOne.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
                     }
                 }
-
 
                 break;
             }
@@ -509,7 +507,11 @@ i32 main(i32 argc, char **argv)
                 // Draw Background and Scores
                 DrawBackgroundAndScores();
 
+                // Paddles & Ball
                 SDL_SetRenderDrawColor(Renderer, 10, 100, 10, 255);
+                SDL_RenderFillRect(Renderer, &PlayerOne.Rect);
+                SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
+                SDL_RenderFillRect(Renderer, &Ball.Rect);
 
                 // Draw Text
                 DrawTextureCentered(Gamestate.Title, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 200);
@@ -522,30 +524,13 @@ i32 main(i32 argc, char **argv)
             }
             case State_Game:
             {
-
-                // Draw Background and Scores
                 DrawBackgroundAndScores();
 
+                // Paddles & Ball
                 SDL_SetRenderDrawColor(Renderer, 40, 140, 40, 255);
-
-                // Create Rects, and Draw Players
-                SDL_Rect P1R = {(i32)PlayerOne.Position.x,
-                                (i32)PlayerOne.Position.y,
-                                PADDLE_WIDTH,
-                                PADDLE_HEIGHT};
-                SDL_Rect P2R = {(i32)PlayerTwo.Position.x,
-                                (i32)PlayerTwo.Position.y,
-                                PADDLE_WIDTH,
-                                PADDLE_HEIGHT};
-                SDL_RenderFillRect(Renderer, &P1R);
-                SDL_RenderFillRect(Renderer, &P2R);
-
-                SDL_Rect BallRect = {(i32)Ball.Position.x,
-                                     (i32)Ball.Position.y,
-                                     BALL_RADIUS * 2,
-                                     BALL_RADIUS * 2};
-
-                SDL_RenderFillRect(Renderer, &BallRect);
+                SDL_RenderFillRect(Renderer, &PlayerOne.Rect);
+                SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
+                SDL_RenderFillRect(Renderer, &Ball.Rect);
 
                 SDL_RenderPresent(Renderer);
 
@@ -556,23 +541,9 @@ i32 main(i32 argc, char **argv)
                 DrawBackgroundAndScores();
 
                 SDL_SetRenderDrawColor(Renderer, 10, 100, 10, 255);
-
-                SDL_Rect P1R = {(i32)PlayerOne.Position.x,
-                                (i32)PlayerOne.Position.y,
-                                PADDLE_WIDTH,
-                                PADDLE_HEIGHT};
-                SDL_Rect P2R = {(i32)PlayerTwo.Position.x,
-                                (i32)PlayerTwo.Position.y,
-                                PADDLE_WIDTH,
-                                PADDLE_HEIGHT};
-                SDL_RenderFillRect(Renderer, &P1R);
-                SDL_RenderFillRect(Renderer, &P2R);
-
-                SDL_Rect BallRect = {(i32)Ball.Position.x,
-                                     (i32)Ball.Position.y,
-                                     BALL_RADIUS*2,
-                                     BALL_RADIUS*2};
-                SDL_RenderFillRect(Renderer, &BallRect);
+                SDL_RenderFillRect(Renderer, &PlayerOne.Rect);
+                SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
+                SDL_RenderFillRect(Renderer, &Ball.Rect);
 
                 SDL_RenderPresent(Renderer);
 
