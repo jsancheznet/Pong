@@ -1,6 +1,6 @@
 // TODO: Statically Link Executable
 // TODO: Remove position on paddles and balls and just use SDL_Rect?
-// TODO: Create Ball Diameter Macro
+// TODO: Reset Ball speed on point
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -113,12 +113,6 @@ b32 Collision(paddle *Paddle, ball *PongBall)
     // stop the weird behaviour of the ball if the paddle is going the
     // direction the ball has bounced to.
 
-    // // Update Rects
-    // Paddle->Rect.x = (i32)Paddle->Position.x;
-    // Paddle->Rect.y = (i32)Paddle->Position.y;
-    // PongBall->Rect.x = (i32)PongBall->Position.x;
-    // PongBall->Rect.y = (i32)PongBall->Position.y;
-
     // Check for Collision, if true
     // CollisionResult, check which one is smaller width or height.
     // Move the ball the smaller value back to its place.
@@ -144,6 +138,8 @@ b32 Collision(paddle *Paddle, ball *PongBall)
                 PongBall->Speed.x *= -1.0f;
             }
 
+            // Add speed to the ball
+            PongBall->Speed *= 1.2f;
         }
 
         if(CollisionResult.h < CollisionResult.w)
@@ -294,19 +290,15 @@ void DrawBackgroundAndScores()
 
 void DrawPaddlesAndBall()
 {
-
-    // PlayerOne.Rect.x  = (i32)PlayerOne.Position.x;
-    // PlayerOne.Rect.y  = (i32)PlayerOne.Position.y;
-    // PlayerTwo.Rect.x  = (i32)PlayerTwo.Position.x;
-    // PlayerTwo.Rect.y  = (i32)PlayerTwo.Position.y;
-    // Ball.Rect.x  = (i32)Ball.Position.x;
-    // Ball.Rect.y  = (i32)Ball.Position.y;
-
     SDL_RenderFillRect(Renderer, &PlayerOne.Rect);
     SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
-
     SDL_RenderFillRect(Renderer, &Ball.Rect);
+}
 
+void BallCenterPosition(ball *Ball_)
+{
+    Ball_->Rect.x = WINDOW_WIDTH / 2 - BALL_RADIUS;
+    Ball_->Rect.y = WINDOW_HEIGHT / 2 - BALL_RADIUS;
 }
 
 i32 main(i32 argc, char **argv)
@@ -418,13 +410,11 @@ i32 main(i32 argc, char **argv)
                     PlayerTwo.Rect.y += PlayerTwo.Speed;
                 }
 
+                // TODO: Remove this, winner of the point needs to catch the ball
                 if(Keyboard.State[SDL_SCANCODE_SPACE])
                 {
                     Ball.Speed += V2(-0.5f, 1.0f);
                 }
-
-                PlayerOne.Rect.x = (i32)PlayerOne.Rect.x;
-                PlayerOne.Rect.y = (i32)PlayerOne.Rect.y;
 
                 // Ball Update
                 Ball.Rect.x += (i32)Ball.Speed.x;
@@ -451,7 +441,7 @@ i32 main(i32 argc, char **argv)
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerTwo.Score++;
-                    Ball.Rect = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    BallCenterPosition(&Ball);
                     if(PlayerTwo.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
@@ -461,7 +451,7 @@ i32 main(i32 argc, char **argv)
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerOne.Score++;
-                    Ball.Rect = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+                    BallCenterPosition(&Ball);
                     if(PlayerOne.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
@@ -470,6 +460,7 @@ i32 main(i32 argc, char **argv)
 
                 break;
             }
+
             case State_Pause:
             {
                 // Escape exits game
@@ -490,6 +481,7 @@ i32 main(i32 argc, char **argv)
                 }
                 break;
             }
+
             case State_End:
             {
                 break;

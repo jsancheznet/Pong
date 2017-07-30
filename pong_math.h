@@ -118,6 +118,13 @@ inline v2& operator-=(v2 &A, v2 B)
     return A;
 }
 
+inline v2& operator*=(v2 &A, r32 Scalar)
+{
+    A.x *= Scalar;
+    A.y *= Scalar;
+
+    return A;
+}
 
 inline v2 operator/(v2 Vec, r32 Scalar)
 {
