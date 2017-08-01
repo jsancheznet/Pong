@@ -1,6 +1,8 @@
 // TODO: Statically Link Executable
-// TODO: Remove position on paddles and balls and just use SDL_Rect?
 // TODO: Reset Ball speed on point
+// TODO: Pause the game when windows is out of focus
+// TODO: FPS Counter!
+// TODO: Why is it slow sometimes?
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -10,7 +12,12 @@
 #include <assert.h>
 
 #include "pong_math.h"
-#include "shared.h"
+
+// #include "shared.h"
+// #include "state_begin.h"
+// #include "state_game.h"
+// #include "state_pause.h"
+// #include "state_end.h"
 
 //
 // Assets
@@ -27,6 +34,8 @@
 #define BALL_RADIUS 10
 #define TEXT_COLOR {120, 160, 100}
 #define SCORE_TEXT_COLOR {20, 110, 10}
+#define BALL_INITIAL_SPEED 3.0f
+#define BALL_MAX_SPEED 10.0f
 
 enum state
 {
@@ -80,9 +89,8 @@ struct gamestate
     SDL_Texture *MovementExplanation = 0;
     SDL_Texture *HumanWon = 0;
     SDL_Texture *HumanLost = 0;
-
-    u64 LastCollision = 0;
-
+    SDL_Texture *PauseTitle = 0;
+    SDL_Texture *PauseContinue = 0;
 
     // Sounds
     Mix_Chunk *Beep = 0;
@@ -94,6 +102,7 @@ struct gamestate
     u64 FrameStart;
     u64 FrameEnd;
     u64 CounterFreq;
+    u64 FrameCounter;
 };
 
 global_variable i32 IsRunning = true;
@@ -117,58 +126,76 @@ b32 Collision(paddle *Paddle, ball *PongBall)
     // CollisionResult, check which one is smaller width or height.
     // Move the ball the smaller value back to its place.
     // Inverse the ball speed according
-    SDL_Rect CollisionResult = {};
-    if(SDL_IntersectRect(&Paddle->Rect, &PongBall->Rect, &CollisionResult) == SDL_TRUE)
+
+    //
+    // Paddle Vs Walls
+    //
+    if(Paddle->Rect.y <= 0)
     {
-        Mix_PlayChannel( -1, Gamestate.Plop, 0 );
-
-        // Handle X Collision
-        if(CollisionResult.w < CollisionResult.h)
-        {
-            if(Paddle->Rect.x <= WINDOW_WIDTH / 2)
-            {
-                // Paddle is the left one
-                PongBall->Rect.x += CollisionResult.w;
-                PongBall->Speed.x *= -1.0f;
-            }
-            else
-            {
-                // Paddle is the right one
-                PongBall->Rect.x -= CollisionResult.w;
-                PongBall->Speed.x *= -1.0f;
-            }
-
-            // Add speed to the ball
-            PongBall->Speed *= 1.2f;
-        }
-
-        if(CollisionResult.h < CollisionResult.w)
-        {
-            // NOTE: if ball is above, substract, if below add
-            if(PongBall->Rect.x < Paddle->Rect.x)
-            {
-                PongBall->Rect.y -= CollisionResult.h;
-                PongBall->Speed.y *= -1.0f;
-            }
-            else
-            {
-                PongBall->Rect.y += CollisionResult.h;
-                PongBall->Speed.y *= -1.0f;
-            }
-        }
-
-        return true;
+        Paddle->Rect.y = 0;
+    }
+    else if(Paddle->Rect.y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
+    {
+        Paddle->Rect.y = WINDOW_HEIGHT - PADDLE_HEIGHT;
     }
 
-    return false;
+    //
+    // Paddle Vs Ball
+    //
+
+    if(Gamestate.FrameCounter % 5 == 0)
+    {
+        SDL_Rect CollisionResult = {};
+        if(SDL_IntersectRect(&Paddle->Rect, &PongBall->Rect, &CollisionResult) == SDL_TRUE)
+        {
+            Mix_PlayChannel( -1, Gamestate.Plop, 0 );
+
+            // Handle X Collision
+            if(CollisionResult.w < CollisionResult.h)
+            {
+                if(Paddle->Rect.x <= WINDOW_WIDTH / 2)
+                {
+                    // Paddle is the left one
+                    PongBall->Rect.x += CollisionResult.w;
+                    PongBall->Speed.x *= -1.0f;
+                }
+                else
+                {
+                    // Paddle is the right one
+                    PongBall->Rect.x -= CollisionResult.w;
+                    PongBall->Speed.x *= -1.0f;
+                }
+
+                // Add speed to the ball
+                PongBall->Speed *= 1.2f;
+            }
+
+            if(CollisionResult.h < CollisionResult.w)
+            {
+                // NOTE: if ball is above, substract, if below add
+                if(PongBall->Rect.x < Paddle->Rect.x)
+                {
+                    PongBall->Rect.y -= CollisionResult.h;
+                    PongBall->Speed.y *= -1.0f;
+                }
+                else
+                {
+                    PongBall->Rect.y += CollisionResult.h;
+                    PongBall->Speed.y *= -1.0f;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color)
 {
     SDL_Texture *Result = 0;
-
     SDL_Color InputColor = {Color.r, Color.g, Color.b};
     SDL_Surface *Surface = 0;
+
     Surface = TTF_RenderText_Solid(Font, String, InputColor);
     if(!Surface)
     {
@@ -204,9 +231,11 @@ int LoadAssets(void)
     Gamestate.Title = CreateTextureFromText("Pong", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.PressSpaceToBegin = CreateTextureFromText("Press space to begin", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.MovementExplanation = CreateTextureFromText("W  S  to control paddle", Gamestate.FontSmall, TEXT_COLOR);
+    Gamestate.GameOver = CreateTextureFromText("Game Over", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.HumanWon = CreateTextureFromText("The Human has won", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.HumanLost = CreateTextureFromText("HAL has won", Gamestate.FontBig, TEXT_COLOR);
-
+    Gamestate.PauseTitle = CreateTextureFromText("Game Paused", Gamestate.FontBig, TEXT_COLOR);
+    Gamestate.PauseContinue = CreateTextureFromText("Press space to continue", Gamestate.FontSmall, TEXT_COLOR);
 
     // Background comprised of SDL_Rects
     const i32 BgLineSpan = 10;
@@ -230,6 +259,8 @@ int LoadAssets(void)
     // Create Ball
     Ball.Rect = {(WINDOW_WIDTH / 2 - BALL_RADIUS), (WINDOW_HEIGHT / 2 - BALL_RADIUS),
                  BALL_RADIUS * 2, BALL_RADIUS * 2};
+    // Ball always begins movement towards player
+    Ball.Speed = v2{-BALL_INITIAL_SPEED, 0.0f};
 
     return true;
 }
@@ -256,12 +287,8 @@ void DrawScores(paddle *P1, paddle *P2)
     _itoa_s(P1->Score, ScoreP1, 2, 10);
     _itoa_s(P2->Score, ScoreP2, 2, 10);
 
-    SDL_Texture *TextureP1 =  CreateTextureFromText(
-        ScoreP1,
-        Gamestate.FontBig, SCORE_TEXT_COLOR);
-    SDL_Texture *TextureP2 =  CreateTextureFromText(
-        ScoreP2,
-        Gamestate.FontBig, SCORE_TEXT_COLOR);
+    SDL_Texture *TextureP1 =  CreateTextureFromText(ScoreP1, Gamestate.FontBig, SCORE_TEXT_COLOR);
+    SDL_Texture *TextureP2 =  CreateTextureFromText(ScoreP2, Gamestate.FontBig, SCORE_TEXT_COLOR);
 
     if(P1->Rect.x <= WINDOW_WIDTH / 2)
     {
@@ -277,6 +304,9 @@ void DrawScores(paddle *P1, paddle *P2)
         DrawTextureCentered(TextureP1, WINDOW_WIDTH / 2 + 100, WINDOW_HEIGHT / 2);
         DrawTextureCentered(TextureP2, WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
     }
+
+    SDL_DestroyTexture(TextureP1);
+    SDL_DestroyTexture(TextureP2);
 }
 
 void DrawBackgroundAndScores()
@@ -363,6 +393,21 @@ i32 main(i32 argc, char **argv)
             {
                 IsRunning = false;
             }
+
+            if (Event.type == SDL_WINDOWEVENT)
+            {
+                switch (Event.window.event)
+                {
+                    case SDL_WINDOWEVENT_HIDDEN:
+                    case SDL_WINDOWEVENT_MOVED:
+                    case SDL_WINDOWEVENT_MINIMIZED:
+                    case SDL_WINDOWEVENT_FOCUS_LOST:
+                    {
+                        Gamestate.CurrentState = State_Pause;
+                        break;
+                    }
+                }
+            }
         }
 
         Keyboard.State = SDL_GetKeyboardState(NULL);
@@ -410,12 +455,6 @@ i32 main(i32 argc, char **argv)
                     PlayerTwo.Rect.y += PlayerTwo.Speed;
                 }
 
-                // TODO: Remove this, winner of the point needs to catch the ball
-                if(Keyboard.State[SDL_SCANCODE_SPACE])
-                {
-                    Ball.Speed += V2(-0.5f, 1.0f);
-                }
-
                 // Ball Update
                 Ball.Rect.x += (i32)Ball.Speed.x;
                 Ball.Rect.y += (i32)Ball.Speed.y;
@@ -437,21 +476,26 @@ i32 main(i32 argc, char **argv)
                 }
 
                 // Check if someone scored, put ball back into position
+
+                // AI Scored
                 if(Ball.Rect.x <= 0)
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerTwo.Score++;
                     BallCenterPosition(&Ball);
+                    Ball.Speed = V2(BALL_INITIAL_SPEED, 0.0f); // The ball moves towards the one who scored
                     if(PlayerTwo.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
                     }
                 }
+                // Player Scored
                 if(Ball.Rect.x >= (WINDOW_WIDTH - BALL_RADIUS * 2))
                 {
                     Mix_PlayChannel( -1, Gamestate.Peep, 0 );
                     PlayerOne.Score++;
                     BallCenterPosition(&Ball);
+                    Ball.Speed = V2(-BALL_INITIAL_SPEED, 0.0f); // The ball moves towards the one who scored
                     if(PlayerOne.Score >= 5)
                     {
                         Gamestate.CurrentState = State_End;
@@ -537,6 +581,9 @@ i32 main(i32 argc, char **argv)
                 SDL_RenderFillRect(Renderer, &PlayerTwo.Rect);
                 SDL_RenderFillRect(Renderer, &Ball.Rect);
 
+                DrawTextureCentered(Gamestate.PauseTitle, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 200);
+                DrawTextureCentered(Gamestate.PauseContinue, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
+
                 SDL_RenderPresent(Renderer);
 
                 break;
@@ -550,6 +597,7 @@ i32 main(i32 argc, char **argv)
         Gamestate.FrameEnd = SDL_GetPerformanceCounter();
         DeltaTime = (r64)((Gamestate.FrameEnd - Gamestate.FrameStart) * 1000.0f) / Gamestate.CounterFreq;
         DeltaTime /= 1000.0f;
+        Gamestate.FrameCounter++;
     }
 
     return 0;
