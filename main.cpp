@@ -1,10 +1,6 @@
 // TODO: Statically Link Executable
-// TODO: When the ball collides with the paddle, move the ball the penetration factor, not old position
 // TODO: Make the ball rebound at angles
-// TODO: Make AI
-// TODO: Add sounds to collision
 // TODO: Add power state to game title
-// TODO: Add press space to exit on State_Initial
 
 #include <SDL.h>
 #include <SDL_image.h>

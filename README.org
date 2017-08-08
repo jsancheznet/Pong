@@ -1,19 +1,36 @@
 * Simple Pong Clone
 
-** Goals
+* Licenses
+** Font
+Joiro Hatagaya made the font, his license for the font is located in assets/Licenses/8-BIT WONDER.TXT
+Thanks Joiro
+
+** Sounds
+captaincrunch80 made the sounds, you can find them here https://opengameart.org/content/3-ping-pong-sounds-8-bit-style
+
+* Goals
 - Finish something
-- The game should just be one executable, no extra files, clean single executable.
-- Compile on MSVC
-- Compile on Clang in Linux
-- Compile on GCC Linux
 
-** Tools
-- SDL Multimedia Library
-- SDL_TTF
-- SDL_Image
+* Tools
+- SDL 		https://www.libsdl.org/
+- SDL_TTF 	https://www.libsdl.org/projects/SDL_ttf/
+- SDL_Image 	https://www.libsdl.org/projects/SDL_image/
+- SDL_Mixer 	https://www.libsdl.org/projects/SDL_mixer/
 
-** How to build
+* How to build
 *** Windows
-TODO, write how to compile on windows
-*** Linux
-TODO, write how to compile on Linux
+Build from the command line:
+
+- if you have Visual Studio 2017 installed, running misc/vcvarsall.bat will enable the MSVC compiler CLI programs.
+- Visual Studio Versions before 2017 have the vcvarsall.bat somewhere else inside the VC folder. run it.
+
+Download the following libraries, open build.bat and edit the
+appropiate things, it's pretty clear how it works if you have worked
+with the command line before.
+
+Sorry there are no easy MSVC project files, next time I will try to generate one so it can be easier.
+
+- SDL 		https://www.libsdl.org/
+- SDL_TTF 	https://www.libsdl.org/projects/SDL_ttf/
+- SDL_Image 	https://www.libsdl.org/projects/SDL_image/
+- SDL_Mixer 	https://www.libsdl.org/projects/SDL_mixer/
