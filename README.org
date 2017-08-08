@@ -21,11 +21,13 @@ captaincrunch80 made the sounds, you can find them here https://opengameart.org/
 *** Windows
 Build from the command line:
 
-- if you have Visual Studio 2017 installed, running misc/vcvarsall.bat will enable the MSVC compiler CLI programs.
-- Visual Studio Versions before 2017 have the vcvarsall.bat somewhere else inside the VC folder. run it.
+1- Create the build directory in the root of the project
+2- If you have VS2017 installed, edit misc/vcvarsall.bat to include your username
+3- If you do not have VS2017, vcvarsall.bat is somewhere inside the VC directory in the Visual Studio installation directory.
+You need to run vcvarsall to enable the cli msvc toolchain, build.bat scripts uses it.
 
-Download the following libraries, open build.bat and edit the
-appropiate things, it's pretty clear how it works if you have worked
-with the command line before.
+4- Download the tools used (SDL stuff)
+5- Edit build.bat to include the "include" directories and lib directories
+6- run build.bat from the root of the project
 
 Sorry there are no easy MSVC project files, next time I will try to generate one so it can be easier.

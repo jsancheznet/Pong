@@ -238,11 +238,11 @@ void DrawBall(void)
 void DrawScores()
 {
     // TODO: We can draw one texture with both scores and draw it centered
-    char ScoreP1[2] = {};
-    char ScoreP2[2] = {};
+    char ScoreP1[3] = {};
+    char ScoreP2[3] = {};
 
-    _itoa_s(PlayerOne.Score, ScoreP1, 2, 10);
-    _itoa_s(PlayerTwo.Score, ScoreP2, 2, 10);
+    _itoa_s(PlayerOne.Score, ScoreP1, 3, 10);
+    _itoa_s(PlayerTwo.Score, ScoreP2, 3, 10);
 
     SDL_Texture *TextureP1 =  CreateTextureFromText(ScoreP1, Gamestate.FontBig, SCORE_TEXT_COLOR);
     SDL_Texture *TextureP2 =  CreateTextureFromText(ScoreP2, Gamestate.FontBig, SCORE_TEXT_COLOR);
@@ -637,6 +637,7 @@ i32 main(i32 argc, char **argv)
     PlayerOne.Position = V2(20.0f, WINDOW_HEIGHT / 2);
     PlayerOne.Size = V2(20.0f, 100.0f);
     PlayerOne.Speed = PADDLE_SPEED;
+    PlayerOne.Score = 9;
 
     // Paddle Two
     PlayerTwo.Position = V2(WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT / 2);
@@ -721,6 +722,11 @@ i32 main(i32 argc, char **argv)
 
                 // Calculate collisions
                 ResolveCollisions();
+
+                if(PlayerOne.Score == 10 || PlayerTwo.Score == 10)
+                {
+                    Gamestate.CurrentState = State_End;
+                }
                 break;
             }
 
@@ -814,18 +820,18 @@ i32 main(i32 argc, char **argv)
                 DrawPaddle(&PlayerTwo);
                 DrawPaddle(&PlayerOne);
 
-                if(PlayerOne.Score == 5)
+                if(PlayerOne.Score == 10)
                 {
                     // Human Won
                     DrawTextureCentered(Gamestate.HumanWon, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
-                    DrawTextureCentered(Gamestate.EscapeToExit, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
                 }
                 else
                 {
                     // AI Won
                     DrawTextureCentered(Gamestate.HumanLost, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
-                    DrawTextureCentered(Gamestate.EscapeToExit, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
                 }
+
+                DrawTextureCentered(Gamestate.EscapeToExit, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
 
                 break;
             }
@@ -849,113 +855,3 @@ i32 main(i32 argc, char **argv)
 
     return 0;
 }
-
-#if 0
-SDL_Texture *MySDL_LoadImageFromArray(unsigned char *Data, i32 Size)
-{
-    SDL_Texture *Result = NULL;
-    SDL_Surface *Surface = NULL;
-
-    Surface = IMG_Load_RW(SDL_RWFromMem((void*)Data, Size), 1);
-    Assert(Surface);
-
-    Result = SDL_CreateTextureFromSurface(Renderer, Surface);
-    Assert(Result);
-
-    return (Result);
-}
-#endif
-
-#if 0
-
-#endif
-
-#if 0
-void DrawBackgroundAndScores()
-{
-    SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
-    SDL_RenderClear(Renderer);
-    SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
-    SDL_RenderFillRects(Renderer, Gamestate.Background, 3);
-    DrawScores(&PlayerOne, &PlayerTwo);
-}
-#endif
-
-#if 0
-
-b32 Collision(paddle *Paddle, ball *PongBall)
-{
-    Check for Collision, if true
-    CollisionResult, check which one is smaller width or height.
-    Move the ball the smaller value back to its place.
-    Inverse the ball speed according
-
-    //
-    // Paddle Vs Walls
-    //
-    if(Paddle->Rect.y <= 0)
-    {
-        Paddle->Rect.y = 0;
-    }
-    else if(Paddle->Rect.y >= WINDOW_HEIGHT - PADDLE_HEIGHT)
-    {
-        Paddle->Rect.y = WINDOW_HEIGHT - PADDLE_HEIGHT;
-    }
-
-    //
-    // Paddle Vs Ball
-    //
-
-    SDL_Rect CollisionResult = {};
-    if(SDL_IntersectRect(&Paddle->Rect, &PongBall->Rect, &CollisionResult) == SDL_TRUE)
-    {
-        Mix_PlayChannel( -1, Gamestate.Plop, 0 );
-
-        // Handle X Collision
-        if(CollisionResult.w < CollisionResult.h)
-        {
-            if(Paddle->Rect.x <= WINDOW_WIDTH / 2)
-            {
-                // Paddle is the left one
-                PongBall->Rect.x += CollisionResult.w;
-                PongBall->Speed.x *= -1.0f;
-
-                if(PongBall->Rect.y - Paddle->Rect.y <= PADDLE_HEIGHT / 3)
-                {
-                    PongBall->Speed.y -= 1.0f;
-                }
-                else if(PongBall->Rect.y - Paddle->Rect.y >= PADDLE_HEIGHT / 3)
-                {
-                    PongBall->Speed.y += 1.0f;
-                }
-            }
-            else
-            {
-                // Paddle is the right one
-                PongBall->Rect.x -= CollisionResult.w;
-                PongBall->Speed.x *= -1.0f;
-            }
-
-            // Add speed to the ball
-            PongBall->Speed *= 1.2f;
-        }
-
-        if(CollisionResult.h < CollisionResult.w)
-        {
-            // NOTE: if ball is above, substract, if below add
-            if(PongBall->Rect.x < Paddle->Rect.x)
-            {
-                PongBall->Rect.y -= CollisionResult.h;
-                PongBall->Speed.y *= -1.0f;
-            }
-            else
-            {
-                PongBall->Rect.y += CollisionResult.h;
-                PongBall->Speed.y *= -1.0f;
-            }
-        }
-    }
-    return true;
-}
-
-#endif
