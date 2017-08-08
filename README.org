@@ -29,8 +29,3 @@ appropiate things, it's pretty clear how it works if you have worked
 with the command line before.
 
 Sorry there are no easy MSVC project files, next time I will try to generate one so it can be easier.
-
-- SDL 		https://www.libsdl.org/
-- SDL_TTF 	https://www.libsdl.org/projects/SDL_ttf/
-- SDL_Image 	https://www.libsdl.org/projects/SDL_image/
-- SDL_Mixer 	https://www.libsdl.org/projects/SDL_mixer/
