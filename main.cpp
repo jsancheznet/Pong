@@ -1,7 +1,10 @@
 // TODO: Statically Link Executable
+// TODO: When the ball collides with the paddle, move the ball the penetration factor, not old position
 // TODO: Make the ball rebound at angles
 // TODO: Make AI
-// TODO: Why is it slow sometimes?
+// TODO: Add sounds to collision
+// TODO: Add power state to game title
+// TODO: Add press space to exit on State_Initial
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -15,6 +18,7 @@
 //
 // Assets
 //
+
 #include "assets/8bit_font.h"
 #include "assets/sound_beep_wav.h"
 #include "assets/sound_peep_wav.h"
@@ -24,9 +28,10 @@
 #define WINDOW_HEIGHT 480
 #define PADDLE_WIDTH 15
 #define PADDLE_HEIGHT 99
+#define PADDLE_SPEED 50.0f
 #define BALL_RADIUS 10
 #define TEXT_COLOR {120, 160, 100}
-#define SCORE_TEXT_COLOR {20, 110, 10}
+#define SCORE_TEXT_COLOR {10, 70, 10}
 #define BALL_INITIAL_SPEED 5.0f
 #define BALL_MAX_SPEED 10.0f
 
@@ -56,7 +61,6 @@ struct mouse
 struct ball
 {
     v2 Position;
-    v2 OldPosition;
     v2 Velocity;
     v2 Acceleration;
     v2 Size;
@@ -82,31 +86,31 @@ struct gamestate
     SDL_Rect Background[3] = {};
 
     // Font
-    TTF_Font *FontBig = 0;
-    TTF_Font *FontSmall = 0;
-    SDL_Texture *GameOver = 0;
-    SDL_Texture *Title = 0;
-    SDL_Texture *PressSpaceToBegin = 0;
-    SDL_Texture *MovementExplanation = 0;
-    SDL_Texture *HumanWon = 0;
-    SDL_Texture *HumanLost = 0;
-    SDL_Texture *PauseTitle = 0;
-    SDL_Texture *PauseContinue = 0;
-    SDL_Texture *EscapeToExit = 0;
+    TTF_Font *FontBig = NULL;
+    TTF_Font *FontSmall = NULL;
+    SDL_Texture *GameOver = NULL;
+    SDL_Texture *Title = NULL;
+    SDL_Texture *PressSpaceToBegin = NULL;
+    SDL_Texture *MovementExplanation = NULL;
+    SDL_Texture *HumanWon = NULL;
+    SDL_Texture *HumanLost = NULL;
+    SDL_Texture *PauseTitle = NULL;
+    SDL_Texture *PauseContinue = NULL;
+    SDL_Texture *EscapeToExit = NULL;
 
     // Sounds
-    Mix_Chunk *Beep = 0;
-    Mix_Chunk *Peep = 0;
-    Mix_Chunk *Plop = 0;
+    Mix_Chunk *Beep = NULL;
+    Mix_Chunk *Peep = NULL;
+    Mix_Chunk *Plop = NULL;
 
     // Time Related
     r64 DeltaTime;
     u64 FrameStart;
     u64 FrameEnd;
     u64 CounterFreq;
-    r64 SecondsPassed = 0;
-    u64 FrameCounter = 0;
-    u64 FPS = 0;
+    r64 SecondsPassed = NULL;
+    u64 FrameCounter = NULL;
+    u64 FPS = NULL;
 };
 
 global_variable i32 IsRunning = true;
@@ -119,6 +123,22 @@ global_variable SDL_Renderer *Renderer;
 global_variable ball Ball = {};
 global_variable paddle PlayerOne = {};
 global_variable paddle PlayerTwo = {};
+
+SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color);
+int AssetsLoad(void);
+void DrawBackground();
+void DrawTextureCentered(SDL_Texture *Texture, i32 x, i32 y);
+void DrawBall(void);
+void DrawScores();
+void DrawPaddle(paddle *Paddle);
+void DoNewtonMotion(v2 *Position, v2 *Velocity, v2 *Acceleration, r64 DT);
+void BallReset();
+void UpdateBall(r64 dt);
+void UpdatePlayer(r64 dt);
+b32 Overlapping(r32 MinA, r32 MaxA, r32 MinB, r32 MaxB);
+r32 Penetration(r32 CenterA, r32 SizeA, r32 CenterB, r32 SizeB);
+void ResolveCollisions();
+void Init();
 
 SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color)
 {
@@ -210,6 +230,7 @@ void DrawBall(void)
 
 void DrawScores()
 {
+    // TODO: We can draw one texture with both scores and draw it centered
     char ScoreP1[2] = {};
     char ScoreP2[2] = {};
 
@@ -259,7 +280,6 @@ void DoNewtonMotion(v2 *Position, v2 *Velocity, v2 *Acceleration, r64 DT)
 
 void BallReset()
 {
-    // Ball always begins movement towards player
     Ball.Position = V2(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
     Ball.Velocity = {};
 }
@@ -267,7 +287,6 @@ void BallReset()
 void UpdateBall(r64 dt)
 {
     // Ball Update
-    Ball.OldPosition = Ball.Position;
     DoNewtonMotion(&Ball.Position, &Ball.Velocity, &Ball.Acceleration, dt);
 
     //
@@ -305,6 +324,7 @@ void UpdateBall(r64 dt)
     {
         Ball.Velocity.y *= -1.0f;
     }
+
 }
 
 void UpdatePlayer(r64 dt)
@@ -312,13 +332,13 @@ void UpdatePlayer(r64 dt)
     if(Keyboard.State[SDL_SCANCODE_W])
     {
         // Up
-        PlayerOne.Acceleration.y -= 50.0f;
+        PlayerOne.Acceleration.y -= PADDLE_SPEED;
     }
 
     if(Keyboard.State[SDL_SCANCODE_S])
     {
         // Down
-        PlayerOne.Acceleration.y += 50.0f;
+        PlayerOne.Acceleration.y += PADDLE_SPEED;
     }
 
     DoNewtonMotion(&PlayerOne.Position, &PlayerOne.Velocity, &PlayerOne.Acceleration, dt);
@@ -344,6 +364,61 @@ void UpdatePlayer(r64 dt)
 
 void UpdateAI(r64 dt)
 {
+    ball InvisibleBall = Ball;
+
+    if(Ball.Velocity.x > 0)
+    {
+        while(InvisibleBall.Position.x < WINDOW_WIDTH / 2)
+        {
+            DoNewtonMotion(&InvisibleBall.Position,
+                           &InvisibleBall.Velocity,
+                           &InvisibleBall.Acceleration,
+                           dt);
+        }
+
+        if(PlayerTwo.Position.y > InvisibleBall.Position.y)
+        {
+            // Move Up
+            PlayerTwo.Acceleration.y -= 50.0f;
+            printf("Going up!\n");
+        }
+        else if(PlayerTwo.Position.y < InvisibleBall.Position.y)
+        {
+            // Move Down
+            PlayerTwo.Acceleration.y += 50.0f;
+            printf("Going down!\n");
+        }
+        else
+        {
+            // Stay
+            PlayerTwo.Acceleration.y = 0.0f;
+            printf("Stay!\n");
+        }
+    }
+
+    DoNewtonMotion(&PlayerTwo.Position,
+                   &PlayerTwo.Velocity,
+                   &PlayerTwo.Acceleration,
+                   dt);
+    PlayerTwo.Velocity *= 0.8f; // Calculate Drag
+
+
+    // Wall Collision on Y
+    // MinY Goes up
+    // MaxY Goes down
+    r32 MinY = PlayerTwo.Position.y - PlayerTwo.Size.y / 2;
+    r32 MaxY = PlayerTwo.Position.y + PlayerTwo.Size.y / 2;
+
+    if(MinY <= 0)
+    {
+        PlayerTwo.Position.y = PlayerTwo.Size.y / 2;
+        PlayerTwo.Velocity.y = 0.0f;
+    }
+    else if(MaxY >= WINDOW_HEIGHT)
+    {
+        PlayerTwo.Position.y = WINDOW_HEIGHT - PlayerTwo.Size.y / 2;
+        PlayerTwo.Velocity.y = 0.0f;
+    }
 }
 
 b32 Overlapping(r32 MinA, r32 MaxA, r32 MinB, r32 MaxB)
@@ -354,10 +429,12 @@ b32 Overlapping(r32 MinA, r32 MaxA, r32 MinB, r32 MaxB)
 r32 Penetration(r32 CenterA, r32 SizeA, r32 CenterB, r32 SizeB)
 {
     // Penetration Calculation
+
+    // To Make sense of the variable names check the url
     // AABB Explanation at the following URL:
     // http://www.metanetsoftware.com/technique/tutorialA.html
-    r32 Result;
 
+    r32 Result;
     // Red is A
     // Blue is B
     r32 Green = (r32)fabs(CenterA - CenterB);
@@ -412,14 +489,36 @@ void ResolveCollisions()
 
         if(HorizontalPenetration < VerticalPenetration)
         {
-            Ball.Position = Ball.OldPosition;
+            // This is always PlayerOne, so we can just add HorizontalPenetration
+            Ball.Position.x += HorizontalPenetration;
             Ball.Velocity.x *= -1.1f;
         }
         else
         {
-            Ball.Position = Ball.OldPosition;
-            Ball.Velocity.y *= -1.1f;
+            // This is always PlayerOne, so we can just add/subtract VerticalPenetration
+            if(Ball.Position.y < PlayerOne.Position.y)
+            {
+                // Ball Collided on the top of the paddle
+                Ball.Position.y -= VerticalPenetration;
+            }
+            else
+            {
+                // Ball collided on the bottom of the paddle
+                Ball.Position.y += VerticalPenetration;
+            }
+
         }
+
+        // Modify the Angle of the ball if it hit the correct places
+        if(Ball.Position.y - PlayerOne.Position.y < 0)
+        {
+            Ball.Acceleration.y -= 100.0f;
+        }
+        else if(Ball.Position.y - PlayerOne.Position.y > 0)
+        {
+            Ball.Acceleration.y += 100.0f;
+        }
+
     }
 
     //
@@ -448,12 +547,23 @@ void ResolveCollisions()
 
         if(HorizontalPenetration < VerticalPenetration)
         {
-            Ball.Position = Ball.OldPosition;
+            // This is always PlayerTwo, so we can just subtract HorizontalPenetration
+            Ball.Position.x -= HorizontalPenetration;
             Ball.Velocity.x *= -1.1f;
         }
         else
         {
-            Ball.Position = Ball.OldPosition;
+            // This is always PlayerOne, so we can just add/subtract VerticalPenetration
+            if(Ball.Position.y < PlayerTwo.Position.y)
+            {
+                // Ball Collided on the top of the paddle
+                Ball.Position.y -= VerticalPenetration;
+            }
+            else
+            {
+                // Ball collided on the bottom of the paddle
+                Ball.Position.y += VerticalPenetration;
+            }
             Ball.Velocity.y *= -1.1f;
         }
     }
@@ -512,15 +622,17 @@ i32 main(i32 argc, char **argv)
     Ball.Position = V2(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
     Ball.Speed = 300.0f;
     Ball.Size = V2(20.0f, 20.0f);
-    Ball.Acceleration = V2(Ball.Speed, Ball.Speed);
+    Ball.Acceleration = V2(-Ball.Speed, 0.0f);
 
     // Paddle One
     PlayerOne.Position = V2(20.0f, WINDOW_HEIGHT / 2);
     PlayerOne.Size = V2(20.0f, 100.0f);
+    PlayerOne.Speed = PADDLE_SPEED;
 
     // Paddle Two
     PlayerTwo.Position = V2(WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT / 2);
     PlayerTwo.Size = V2(20.0f, 100.0f);
+    PlayerTwo.Speed = PADDLE_SPEED;
 
     // Set Currente State
     Gamestate.CurrentState = State_Begin;
@@ -618,7 +730,6 @@ i32 main(i32 argc, char **argv)
 
             case State_End:
             {
-
                 // Escape exits game
                 if(Keyboard.State[SDL_SCANCODE_ESCAPE] && !Keyboard.PrevState[SDL_SCANCODE_ESCAPE])
                 {
@@ -635,6 +746,7 @@ i32 main(i32 argc, char **argv)
 
         SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
         SDL_RenderClear(Renderer);
+
         // SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
         // SDL_RenderDrawLine(Renderer, WINDOW_WIDTH / 2, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
         // SDL_RenderDrawLine(Renderer, 0, WINDOW_HEIGHT / 2, WINDOW_WIDTH, WINDOW_HEIGHT / 2);
@@ -704,7 +816,6 @@ i32 main(i32 argc, char **argv)
             }
         }
         SDL_RenderPresent(Renderer);
-
 
         Gamestate.FrameEnd = SDL_GetPerformanceCounter();
         DeltaTime = (r64)((Gamestate.FrameEnd - Gamestate.FrameStart) * 1000.0f) / Gamestate.CounterFreq;
