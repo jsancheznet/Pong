@@ -37,7 +37,7 @@
 
 enum state
 {
-    State_Begin,
+    State_Initial,
     State_Game,
     State_Pause,
     State_End
@@ -90,7 +90,7 @@ struct gamestate
     TTF_Font *FontSmall = NULL;
     SDL_Texture *GameOver = NULL;
     SDL_Texture *Title = NULL;
-    SDL_Texture *PressSpaceToBegin = NULL;
+    SDL_Texture *SpaceToBegin = NULL;
     SDL_Texture *MovementExplanation = NULL;
     SDL_Texture *HumanWon = NULL;
     SDL_Texture *HumanLost = NULL;
@@ -140,6 +140,17 @@ r32 Penetration(r32 CenterA, r32 SizeA, r32 CenterB, r32 SizeB);
 void ResolveCollisions();
 void Init();
 
+i32 PlaySound(Mix_Chunk *Chunk)
+{
+    if( Mix_PlayChannel( -1, Chunk, 0 ) == -1 )
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
 SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color)
 {
     SDL_Texture *Result = 0;
@@ -179,7 +190,7 @@ int AssetsLoad(void)
 
     // SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, u8 r, u8 g, u8 b)
     Gamestate.Title = CreateTextureFromText("Pong", Gamestate.FontBig, TEXT_COLOR);
-    Gamestate.PressSpaceToBegin = CreateTextureFromText("Press space to begin", Gamestate.FontSmall, TEXT_COLOR);
+    Gamestate.SpaceToBegin = CreateTextureFromText("Press space to begin", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.MovementExplanation = CreateTextureFromText("W  S  to control paddle", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.GameOver = CreateTextureFromText("Game Over", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.HumanWon = CreateTextureFromText("Human has won", Gamestate.FontBig, TEXT_COLOR);
@@ -309,6 +320,7 @@ void UpdateBall(r64 dt)
         // Player Two Scored, Update Scores, Reset Ball, Ball goes to Player Two
         PlayerTwo.Score++;
         BallReset();
+        PlaySound(Gamestate.Peep);
         Ball.Acceleration = V2(Ball.Speed, 0.0f);
     }
     else if(MaxX >= WINDOW_WIDTH)
@@ -316,16 +328,19 @@ void UpdateBall(r64 dt)
         // Player One Scored, Update Scores, Reset Ball, Ball goes to Player One
         PlayerOne.Score++;
         BallReset();
+        PlaySound(Gamestate.Peep);
         Ball.Acceleration = V2(-Ball.Speed, 0.0f);
     }
     // Resolve Wall on Y
     if(MaxY >= WINDOW_HEIGHT)
     {
         Ball.Velocity.y *= -1.0f;
+        PlaySound(Gamestate.Beep);
     }
     else if(MinY <= 0)
     {
         Ball.Velocity.y *= -1.0f;
+        PlaySound(Gamestate.Beep);
     }
 
 }
@@ -383,19 +398,11 @@ void UpdateAI(r64 dt)
         {
             // Move Up
             PlayerTwo.Acceleration.y -= 50.0f;
-            printf("Going up!\n");
         }
         else if(PlayerTwo.Position.y < InvisibleBall.Position.y)
         {
             // Move Down
             PlayerTwo.Acceleration.y += 50.0f;
-            printf("Going down!\n");
-        }
-        else
-        {
-            // Stay
-            PlayerTwo.Acceleration.y = 0.0f;
-            printf("Stay!\n");
         }
     }
 
@@ -480,6 +487,8 @@ void ResolveCollisions()
     if(Overlapping(BallMinX, BallMaxX, P1MinX, P1MaxX) &&
        Overlapping(BallMinY, BallMaxY, P1MinY, P1MaxY))
     {
+        PlaySound(Gamestate.Plop);
+
         r32 HorizontalPenetration = Penetration(PlayerOne.Position.x,
                                                 PlayerOne.Position.x + PlayerOne.Size.x / 2,
                                                 Ball.Position.x,
@@ -538,6 +547,7 @@ void ResolveCollisions()
     if(Overlapping(BallMinX, BallMaxX, P2MinX, P2MaxX) &&
        Overlapping(BallMinY, BallMaxY, P2MinY, P2MaxY))
     {
+        PlaySound(Gamestate.Plop);
         r32 HorizontalPenetration = Penetration(PlayerTwo.Position.x,
                                                 PlayerTwo.Position.x + PlayerTwo.Size.x / 2,
                                                 Ball.Position.x,
@@ -638,7 +648,7 @@ i32 main(i32 argc, char **argv)
     PlayerTwo.Speed = PADDLE_SPEED;
 
     // Set Currente State
-    Gamestate.CurrentState = State_Begin;
+    Gamestate.CurrentState = State_Initial;
 
     // Keyboard Setup
     Keyboard.State = SDL_GetKeyboardState(&Keyboard.Numkeys);
@@ -688,11 +698,16 @@ i32 main(i32 argc, char **argv)
         //
         switch(Gamestate.CurrentState)
         {
-            case State_Begin:
+            case State_Initial:
             {
                 if(Keyboard.State[SDL_SCANCODE_SPACE])
                 {
                     Gamestate.CurrentState = State_Game;
+                }
+
+                if(Keyboard.State[SDL_SCANCODE_ESCAPE])
+                {
+                    IsRunning = false;
                 }
                 break;
             }
@@ -756,7 +771,7 @@ i32 main(i32 argc, char **argv)
 
         switch(Gamestate.CurrentState)
         {
-            case State_Begin:
+            case State_Initial:
             {
                 DrawBackground();
                 DrawScores();
@@ -766,8 +781,9 @@ i32 main(i32 argc, char **argv)
 
                 // Draw Text
                 DrawTextureCentered(Gamestate.Title, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 200);
-                DrawTextureCentered(Gamestate.MovementExplanation, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 100);
-                DrawTextureCentered(Gamestate.PressSpaceToBegin, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
+                DrawTextureCentered(Gamestate.SpaceToBegin, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+                DrawTextureCentered(Gamestate.MovementExplanation, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 50);
+                DrawTextureCentered(Gamestate.EscapeToExit, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
 
                 break;
             }
