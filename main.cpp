@@ -33,7 +33,7 @@
 #define TEXT_COLOR {120, 160, 100}
 #define SCORE_TEXT_COLOR {10, 70, 10}
 #define BALL_INITIAL_SPEED 5.0f
-#define BALL_MAX_SPEED 10.0f
+#define BALL_MAX_SPEED 7.0f
 
 enum state
 {
@@ -288,6 +288,9 @@ void UpdateBall(r64 dt)
 {
     // Ball Update
     DoNewtonMotion(&Ball.Position, &Ball.Velocity, &Ball.Acceleration, dt);
+
+    Clamp(&Ball.Velocity.x, -BALL_MAX_SPEED, BALL_MAX_SPEED);
+    Clamp(&Ball.Velocity.y, -BALL_MAX_SPEED, BALL_MAX_SPEED);
 
     //
     // Ball Walls
