@@ -1,6 +1,4 @@
-// TODO: Statically Link Executable
-// TODO: Make the ball rebound at angles
-// TODO: Add power state to game title
+// TODO: Ship!
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -22,6 +20,8 @@
 
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
+#define WINDOW_CENTER_X (WINDOW_WIDTH / 2)
+#define WINDOW_CENTER_Y (WINDOW_HEIGHT / 2)
 #define PADDLE_WIDTH 15
 #define PADDLE_HEIGHT 99
 #define PADDLE_SPEED 50.0f
@@ -36,7 +36,7 @@ enum state
     State_Initial,
     State_Game,
     State_Pause,
-    State_End
+    State_GameOver
 };
 
 struct keyboard
@@ -67,7 +67,6 @@ struct paddle
 {
     r32 Speed;
     i32 Score;
-
     v2 Position;
     v2 Velocity;
     v2 Acceleration;
@@ -109,17 +108,11 @@ struct gamestate
     u64 FPS = NULL;
 };
 
-global_variable i32 IsRunning = true;
-global_variable r64 DeltaTime = 0;
-global_variable gamestate Gamestate = {};
-global_variable keyboard Keyboard = {};
-global_variable mouse Mouse = {};
-global_variable SDL_Window *Window;
-global_variable SDL_Renderer *Renderer;
-global_variable ball Ball = {};
-global_variable paddle PlayerOne = {};
-global_variable paddle PlayerTwo = {};
+//
+// Function List
+//
 
+i32 PlaySound(Mix_Chunk *Chunk);
 SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color);
 int AssetsLoad(void);
 void DrawBackground();
@@ -136,6 +129,21 @@ r32 Penetration(r32 CenterA, r32 SizeA, r32 CenterB, r32 SizeB);
 void ResolveCollisions();
 void Init();
 
+//
+// Globals
+//
+
+global_variable i32 IsRunning = true;
+global_variable r64 DeltaTime = 0;
+global_variable gamestate Gamestate = {};
+global_variable keyboard Keyboard = {};
+global_variable mouse Mouse = {};
+global_variable SDL_Window *Window;
+global_variable SDL_Renderer *Renderer;
+global_variable ball Ball = {};
+global_variable paddle PlayerOne = {};
+global_variable paddle PlayerTwo = {};
+
 i32 PlaySound(Mix_Chunk *Chunk)
 {
     if( Mix_PlayChannel( -1, Chunk, 0 ) == -1 )
@@ -145,7 +153,6 @@ i32 PlaySound(Mix_Chunk *Chunk)
 
     return 0;
 }
-
 
 SDL_Texture *CreateTextureFromText(const char *String, TTF_Font *Font, SDL_Color Color)
 {
@@ -189,8 +196,8 @@ int AssetsLoad(void)
     Gamestate.SpaceToBegin = CreateTextureFromText("Press space to begin", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.MovementExplanation = CreateTextureFromText("W  S  to control paddle", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.GameOver = CreateTextureFromText("Game Over", Gamestate.FontBig, TEXT_COLOR);
-    Gamestate.HumanWon = CreateTextureFromText("Human has won", Gamestate.FontBig, TEXT_COLOR);
-    Gamestate.HumanLost = CreateTextureFromText("AI has won", Gamestate.FontBig, TEXT_COLOR);
+    Gamestate.HumanWon = CreateTextureFromText("Human won", Gamestate.FontBig, TEXT_COLOR);
+    Gamestate.HumanLost = CreateTextureFromText("AI won", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.PauseTitle = CreateTextureFromText("Game Paused", Gamestate.FontBig, TEXT_COLOR);
     Gamestate.PauseContinue = CreateTextureFromText("Press space to continue", Gamestate.FontSmall, TEXT_COLOR);
     Gamestate.EscapeToExit = CreateTextureFromText("Press escape to exit", Gamestate.FontSmall, TEXT_COLOR);
@@ -247,19 +254,19 @@ void DrawScores()
     SDL_Texture *TextureP1 =  CreateTextureFromText(ScoreP1, Gamestate.FontBig, SCORE_TEXT_COLOR);
     SDL_Texture *TextureP2 =  CreateTextureFromText(ScoreP2, Gamestate.FontBig, SCORE_TEXT_COLOR);
 
-    if(PlayerOne.Position.x <= WINDOW_WIDTH / 2)
+    if(PlayerOne.Position.x <= WINDOW_CENTER_X)
     {
         // Its on the left side
         // Draw P1 on left, p2 on right
-        DrawTextureCentered(TextureP1, WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
-        DrawTextureCentered(TextureP2, WINDOW_WIDTH / 2 + 100, WINDOW_HEIGHT / 2);
+        DrawTextureCentered(TextureP1, WINDOW_CENTER_X - 100, WINDOW_CENTER_Y);
+        DrawTextureCentered(TextureP2, WINDOW_CENTER_X + 100, WINDOW_CENTER_Y);
     }
     else
     {
         // Its on the right side
         // Draw p2 on left, p1 on right
-        DrawTextureCentered(TextureP1, WINDOW_WIDTH / 2 + 100, WINDOW_HEIGHT / 2);
-        DrawTextureCentered(TextureP2, WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
+        DrawTextureCentered(TextureP1, WINDOW_CENTER_X + 100, WINDOW_CENTER_Y);
+        DrawTextureCentered(TextureP2, WINDOW_CENTER_X - 100, WINDOW_CENTER_Y);
     }
 
     SDL_DestroyTexture(TextureP1);
@@ -408,7 +415,6 @@ void UpdateAI(r64 dt)
                    dt);
     PlayerTwo.Velocity *= 0.8f; // Calculate Drag
 
-
     // Wall Collision on Y
     // MinY Goes up
     // MaxY Goes down
@@ -518,7 +524,7 @@ void ResolveCollisions()
         }
 
         // Modify the Angle of the ball if it hit the correct places
-        if(Ball.Position.y - PlayerOne.Position.y < 0)
+        if(Ball.Position.y  - PlayerOne.Position.y < 0)
         {
             Ball.Acceleration.y -= 100.0f;
         }
@@ -637,12 +643,13 @@ i32 main(i32 argc, char **argv)
     PlayerOne.Position = V2(20.0f, WINDOW_HEIGHT / 2);
     PlayerOne.Size = V2(20.0f, 100.0f);
     PlayerOne.Speed = PADDLE_SPEED;
-    PlayerOne.Score = 9;
+    PlayerOne.Score = 0;
 
     // Paddle Two
     PlayerTwo.Position = V2(WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT / 2);
     PlayerTwo.Size = V2(20.0f, 100.0f);
     PlayerTwo.Speed = PADDLE_SPEED;
+    PlayerTwo.Score = 0;
 
     // Set Currente State
     Gamestate.CurrentState = State_Initial;
@@ -725,8 +732,9 @@ i32 main(i32 argc, char **argv)
 
                 if(PlayerOne.Score == 10 || PlayerTwo.Score == 10)
                 {
-                    Gamestate.CurrentState = State_End;
+                    Gamestate.CurrentState = State_GameOver;
                 }
+
                 break;
             }
 
@@ -748,7 +756,7 @@ i32 main(i32 argc, char **argv)
                 break;
             }
 
-            case State_End:
+            case State_GameOver:
             {
                 // Escape exits game
                 if(Keyboard.State[SDL_SCANCODE_ESCAPE] && !Keyboard.PrevState[SDL_SCANCODE_ESCAPE])
@@ -766,10 +774,6 @@ i32 main(i32 argc, char **argv)
 
         SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
         SDL_RenderClear(Renderer);
-
-        // SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
-        // SDL_RenderDrawLine(Renderer, WINDOW_WIDTH / 2, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
-        // SDL_RenderDrawLine(Renderer, 0, WINDOW_HEIGHT / 2, WINDOW_WIDTH, WINDOW_HEIGHT / 2);
 
         switch(Gamestate.CurrentState)
         {
@@ -812,7 +816,7 @@ i32 main(i32 argc, char **argv)
 
                 break;
             }
-            case State_End:
+            case State_GameOver:
             {
                 DrawBackground();
                 DrawScores();

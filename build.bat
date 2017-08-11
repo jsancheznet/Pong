@@ -17,9 +17,12 @@ set SDLMIXERLIB64="C:\Users\Jsanchez\Dropbox\Projects\Libraries\SDL2_mixer-devel
 set IncludeDirectories=-I%SDLINCLUDE% -I%SDLIMAGEINCLUDE% -I%SDLTTFINCLUDE% -I%SDLMIXERINCLUDE%
 set LibDirectories=-LIBPATH:%SDLLIB64% -LIBPATH:%SDLIMAGELIB64% -LIBPATH:%SDLTTFLIB64% -LIBPATH:%SDLMIXERLIB64%
 
-set CompilerFlags= -DDEBUG -nologo -W4 -WX -Ox -Ob0 %IncludeDirectories% -Zi -MDd /D "_WINDOWS" /D "_DEBUG"
-set LinkerFlags=-nologo -DEBUG %LibDirectories% SDL2.lib SDL2main.lib SDL2_image.lib SDL2_ttf.lib SDL2_mixer.lib
+REM set CompilerFlags= -DDEBUG -nologo -W4 -WX -Ox -Ob0 %IncludeDirectories% -Zi -MDd /D "_WINDOWS" /D "_DEBUG"
+REM set LinkerFlags=-nologo -DEBUG %LibDirectories% SDL2.lib SDL2main.lib SDL2_image.lib SDL2_ttf.lib SDL2_mixer.lib
 
-cl ..\main.cpp %CompilerFlags% /link %LinkerFlags% -SUBSYSTEM:CONSOLE
+set CompilerFlags= -nologo -Ox %IncludeDirectories% -MT /D "_WINDOWS"
+set LinkerFlags=-nologo %LibDirectories% SDL2.lib SDL2main.lib SDL2_image.lib SDL2_ttf.lib SDL2_mixer.lib
+
+cl ..\main.cpp %CompilerFlags% /link %LinkerFlags% -SUBSYSTEM:WINDOWS
 
 popd

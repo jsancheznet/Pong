@@ -14,7 +14,6 @@ captaincrunch80 made the sounds, you can find them here https://opengameart.org/
 * Tools
 - SDL 		https://www.libsdl.org/
 - SDL_TTF 	https://www.libsdl.org/projects/SDL_ttf/
-- SDL_Image 	https://www.libsdl.org/projects/SDL_image/
 - SDL_Mixer 	https://www.libsdl.org/projects/SDL_mixer/
 
 * How to build
@@ -31,3 +30,7 @@ You need to run vcvarsall to enable the cli msvc toolchain, build.bat scripts us
 6- run build.bat from the root of the project
 
 Sorry there are no easy MSVC project files, next time I will try to generate one so it can be easier.
+
+* Executables
+
+You can find a compiled x64 Windows Executable inside Pong.zip in the root directory of the project
