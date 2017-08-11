@@ -22,9 +22,7 @@ Build from the command line:
 
 1- Create the build directory in the root of the project
 2- If you have VS2017 installed, edit misc/vcvarsall.bat to include your username
-3- If you do not have VS2017, vcvarsall.bat is somewhere inside the VC directory in the Visual Studio installation directory.
-You need to run vcvarsall to enable the cli msvc toolchain, build.bat scripts uses it.
-
+3- If you do not have VS2017, vcvarsall.bat is somewhere inside the VC directory in the Visual Studio installation directory. You need to run vcvarsall to enable the cli msvc toolchain, build.bat scripts uses it.
 4- Download the tools used (SDL stuff)
 5- Edit build.bat to include the "include" directories and lib directories
 6- run build.bat from the root of the project
