@@ -33,10 +33,26 @@
 #define PADDLE_HEIGHT 99
 #define PADDLE_SPEED 50.0f
 #define BALL_RADIUS 10
-#define TEXT_COLOR {120, 160, 100}
-#define SCORE_TEXT_COLOR {10, 70, 10}
+#define TEXT_COLOR {200, 200, 200}
 #define BALL_INITIAL_SPEED 5.0f
 #define BALL_MAX_SPEED 7.0f
+
+union color
+{
+    struct
+    {
+        i32 R;
+        i32 G;
+        i32 B;
+    };
+
+    struct
+    {
+        i32 r;
+        i32 g;
+        i32 b;
+    };
+};
 
 enum state
 {
@@ -68,6 +84,7 @@ struct ball
     v2 Acceleration;
     v2 Size;
     r32 Speed;
+    color Color;
 };
 
 struct paddle
@@ -78,6 +95,7 @@ struct paddle
     v2 Velocity;
     v2 Acceleration;
     v2 Size;
+    color Color;
 };
 
 struct gamestate
@@ -150,6 +168,9 @@ global_variable SDL_Renderer *Renderer;
 global_variable ball Ball = {};
 global_variable paddle PlayerOne = {};
 global_variable paddle PlayerTwo = {};
+global_variable color BackgroundColor = {14, 90, 86};
+global_variable color BackgroundLineColor = {48, 191, 90};
+global_variable color TextColor = {0, 0, 0};
 
 i32 PlaySound(Mix_Chunk *Chunk)
 {
@@ -220,7 +241,7 @@ int AssetsLoad(void)
 
 void DrawBackground()
 {
-    SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
+    SDL_SetRenderDrawColor(Renderer, BackgroundLineColor.r, BackgroundLineColor.g, BackgroundLineColor.b, 255);
     SDL_RenderFillRects(Renderer, Gamestate.Background, 3);
 }
 
@@ -245,7 +266,7 @@ void DrawBall(void)
     Rect.y = (i32)(Ball.Position.y - Ball.Size.y / 2);
     Rect.w = (i32)Ball.Size.x;
     Rect.h = (i32)Ball.Size.y;
-    SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
+    SDL_SetRenderDrawColor(Renderer, Ball.Color.r, Ball.Color.g, Ball.Color.b, 255);
     SDL_RenderFillRect(Renderer, &Rect);
 }
 
@@ -258,8 +279,8 @@ void DrawScores()
     _itoa_s(PlayerOne.Score, ScoreP1, 3, 10);
     _itoa_s(PlayerTwo.Score, ScoreP2, 3, 10);
 
-    SDL_Texture *TextureP1 =  CreateTextureFromText(ScoreP1, Gamestate.FontBig, SCORE_TEXT_COLOR);
-    SDL_Texture *TextureP2 =  CreateTextureFromText(ScoreP2, Gamestate.FontBig, SCORE_TEXT_COLOR);
+    SDL_Texture *TextureP1 =  CreateTextureFromText(ScoreP1, Gamestate.FontBig, TEXT_COLOR);
+    SDL_Texture *TextureP2 =  CreateTextureFromText(ScoreP2, Gamestate.FontBig, TEXT_COLOR);
 
     if(PlayerOne.Position.x <= WINDOW_CENTER_X)
     {
@@ -287,7 +308,7 @@ void DrawPaddle(paddle *Paddle)
     Rect.y = (i32)(Paddle->Position.y - Paddle->Size.y / 2);
     Rect.w = (i32)Paddle->Size.x;
     Rect.h = (i32)Paddle->Size.y;
-    SDL_SetRenderDrawColor(Renderer, 10, 100, 30, 255);
+    SDL_SetRenderDrawColor(Renderer, Paddle->Color.r, Paddle->Color.g, Paddle->Color.b, 255);
     SDL_RenderFillRect(Renderer, &Rect);
 }
 
@@ -645,18 +666,21 @@ i32 main(i32 argc, char **argv)
     Ball.Speed = 300.0f;
     Ball.Size = V2(20.0f, 20.0f);
     Ball.Acceleration = V2(-Ball.Speed, 0.0f);
+    Ball.Color = {230, 188, 30};
 
     // Paddle One
     PlayerOne.Position = V2(20.0f, WINDOW_HEIGHT / 2);
     PlayerOne.Size = V2(20.0f, 100.0f);
     PlayerOne.Speed = PADDLE_SPEED;
     PlayerOne.Score = 0;
+    PlayerOne.Color = {245, 97, 17};
 
     // Paddle Two
     PlayerTwo.Position = V2(WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT / 2);
     PlayerTwo.Size = V2(20.0f, 100.0f);
     PlayerTwo.Speed = PADDLE_SPEED;
     PlayerTwo.Score = 0;
+    PlayerTwo.Color = {221, 40, 50};
 
     // Set Currente State
     Gamestate.CurrentState = State_Initial;
@@ -779,7 +803,7 @@ i32 main(i32 argc, char **argv)
         // Render
         //
 
-        SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(Renderer, BackgroundColor.r, BackgroundColor.g, BackgroundColor.b, 255);
         SDL_RenderClear(Renderer);
 
         switch(Gamestate.CurrentState)
@@ -794,7 +818,7 @@ i32 main(i32 argc, char **argv)
 
                 // Draw Text
                 DrawTextureCentered(Gamestate.Title, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 200);
-                DrawTextureCentered(Gamestate.SpaceToBegin, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+                DrawTextureCentered(Gamestate.SpaceToBegin, WINDOW_WIDTH / 2, (WINDOW_HEIGHT / 2) - 100);
                 DrawTextureCentered(Gamestate.MovementExplanation, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 50);
                 DrawTextureCentered(Gamestate.EscapeToExit, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 200);
 
