@@ -17,18 +17,7 @@ captaincrunch80 made the sounds, you can find them here https://opengameart.org/
 - SDL_Mixer 	https://www.libsdl.org/projects/SDL_mixer/
 
 * How to build
-*** Windows
-Build from the command line:
-
-- Create the build directory in the root of the project
-- If you have VS2017 installed, edit misc/vcvarsall.bat to include your username
-- If you do not have VS2017, vcvarsall.bat is somewhere inside the VC directory in the Visual Studio installation directory. You need to run vcvarsall to enable the cli msvc toolchain, build.bat scripts uses it.
-- Download the tools used (SDL stuff)
-- Edit build.bat to include the "include" directories and lib directories
-- run build.bat from the root of the project
-
-Sorry there are no easy MSVC project files, next time I will try to generate one so it can be easier.
-
+  Follow the instructions in build.bat
 * Executables
 
 You can find a compiled x64 Windows Executable inside Pong.zip in the root directory of the project
