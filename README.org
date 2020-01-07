@@ -1,5 +1,4 @@
-* Simple Pong Clone
-
+* Pong Clone
 * Licenses
 ** Font
 Joiro Hatagaya made the font, his license for the font is located in assets/Licenses/8-BIT WONDER.TXT
@@ -8,9 +7,6 @@ Thanks Joiro
 ** Sounds
 captaincrunch80 made the sounds, you can find them here https://opengameart.org/content/3-ping-pong-sounds-8-bit-style
 
-* Goals
-- Finish something
-
 * Tools
 - SDL 		https://www.libsdl.org/
 - SDL_TTF 	https://www.libsdl.org/projects/SDL_ttf/
@@ -18,6 +14,6 @@ captaincrunch80 made the sounds, you can find them here https://opengameart.org/
 
 * How to build
   Follow the instructions in build.bat
-* Executables
 
-You can find a compiled x64 Windows Executable inside Pong.zip in the root directory of the project
+
+[[https://jorgesanchez.me][Jorge Sánchez]]
