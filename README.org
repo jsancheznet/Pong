@@ -16,4 +16,4 @@ captaincrunch80 made the sounds, you can find them here https://opengameart.org/
   Follow the instructions in build.bat
 
 
-[[https://jorgesanchez.me][Jorge Sánchez]]
+[[https://jorgesanchez.me][My website (Jorge Sánchez)]]
