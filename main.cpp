@@ -655,7 +655,7 @@ void Init()
     Mix_Volume(-1, MIX_MAX_VOLUME / 10);
 }
 
-i32 main(i32 argc, char **argv)
+i32 main(int argc, char **argv)
 {
     Init();
 
