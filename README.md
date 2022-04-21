@@ -1,8 +1,8 @@
 # Screenshots
 
-![Main Menu](./screenshots/Game1.png)
-![Main Menu](./screenshots/Game2.png)
-![Main Menu](./screenshots/Main.png)
+![Game](./screenshots/Game1.PNG)
+![Game2](./screenshots/Game2.PNG)
+![Main Menu](./screenshots/Main.PNG)
 
 # How to build
 
