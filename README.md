@@ -1,3 +1,9 @@
+# Screenshots
+
+![Main Menu](./screenshots/Game1.png)
+![Main Menu](./screenshots/Game2.png)
+![Main Menu](./screenshots/Main.png)
+
 # How to build
 
 1. Install visual studio and make sure to install C++ support
