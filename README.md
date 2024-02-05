@@ -1,3 +1,9 @@
+# Features
+ - Custom math library
+ - AABB Collision detection
+ - Custom tool to statically embed assets in executable
+ - Platform & Rendering with libSDL
+
 # Screenshots
 
 ![Game](./screenshots/Game1.PNG)
